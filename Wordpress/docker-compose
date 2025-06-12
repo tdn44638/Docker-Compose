@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  db:
+    image: mariadb:10.6
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db:3306 # Expliciet de poort toevoegen, alhoewel standaard
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      # WordPress salts zijn essentieel voor de beveiliging.
+      # Je kunt deze genereren via https://api.wordpress.org/secret-key/1.1/salt/
+      WORDPRESS_AUTH_KEY: ${WORDPRESS_AUTH_KEY}
+      WORDPRESS_SECURE_AUTH_KEY: ${WORDPRESS_SECURE_AUTH_KEY}
+      WORDPRESS_LOGGED_IN_KEY: ${WORDPRESS_LOGGED_IN_KEY}
+      WORDPRESS_NONCE_KEY: ${WORDPRESS_NONCE_KEY}
+      WORDPRESS_AUTH_SALT: ${WORDPRESS_AUTH_SALT}
+      WORDPRESS_SECURE_AUTH_SALT: ${WORDPRESS_SECURE_AUTH_SALT}
+      WORDPRESS_LOGGED_IN_SALT: ${WORDPRESS_LOGGED_IN_SALT}
+      WORDPRESS_NONCE_SALT: ${WORDPRESS_NONCE_SALT}
+    depends_on:
+      - db
+    ports:
+      - "8880:80" # Voeg een poort toe zodat je WordPress kunt benaderen
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    ports:
+      - "8080:80"
+    restart: always
+    environment:
+      PMA_HOST: db # Dit is correct, verwijst naar de 'db' service
+      PMA_PORT: 3306 # De standaard MySQL/MariaDB poort
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Nodig om in te loggen met root
+    depends_on:
+      - db
+
+volumes:
+  db_data: # Definieer de volume voor database persistentie
