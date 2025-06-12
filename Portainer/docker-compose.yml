@@ -1,0 +1,26 @@
+#compose_content = """version: '3.8'
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+   # environment:
+    #  - PORTAINER_ADMIN_PASSWORD_FILE=/run/secrets/portainer_admin_password
+    # Uncomment below if you want to set admin password via secrets
+    # secrets:
+    #   - portainer_admin_password
+
+volumes:
+  portainer_data:
+
+# Uncomment below if using secrets for admin password
+# secrets:
+#   portainer_admin_password:
+#     file: ./portainer_admin_password.txt
