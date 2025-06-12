@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      # Public HTTP access
+      - '80:80'
+      # Public HTTPS access
+      - '443:443'
+      # Admin Web UI access
+      - '81:81'
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    environment:
+      # Uncomment this if IPv6 is enabled
+      - DISABLE_IPV6=true
+    networks:
+      - nginx-network
+
+networks:
+  nginx-network:
+    driver: bridge
