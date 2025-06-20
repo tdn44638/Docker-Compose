@@ -21,8 +21,6 @@ services:
       PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASSWORD}
     ports:
       - "5050:80" # pgAdmin luistert nu op poort 80 (HTTP) intern
-    depends_on:
-      postgres:
-      
+
     volumes:
       - /mnt/HC_Volume_102742537/DockerVolumes/pgadmin_data:/var/lib/pgadmin
