@@ -20,7 +20,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMINMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASSWORD}
     ports:
-      - "8080:80"
+      - "82:80"
     depends_on:
       - postgres
     volumes:
