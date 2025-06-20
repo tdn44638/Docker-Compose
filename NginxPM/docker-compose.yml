@@ -18,7 +18,7 @@ services:
     environment:
       # Uncomment this if IPv6 is enabled
       - DISABLE_IPV6=true
-      - N8N_PUSH_BACKEND=sse
+      
     networks:
       - nginx-network
 
