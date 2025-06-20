@@ -12,7 +12,7 @@ services:
       - "5432:5432"
     volumes:
       - /mnt/HC_Volume_102742537/DockerVolumes/postgres_data:/var/lib/postgresql/data
-    
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: ${PGADMINCONTAINERNAME}
@@ -20,7 +20,8 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMINMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASSWORD}
     ports:
-      - "5050:80" # pgAdmin luistert nu op poort 80 (HTTP) intern
-
+      - "5050:80"
+    depends_on:
+      - postgres
     volumes:
       - /mnt/HC_Volume_102742537/DockerVolumes/pgadmin_data:/var/lib/pgadmin
