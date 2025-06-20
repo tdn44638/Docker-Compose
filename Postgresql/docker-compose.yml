@@ -19,8 +19,8 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMINMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASSWORD}
-  ports:
-    - "5050:80" # pgAdmin luistert nu op poort 80 (HTTP) intern
+    ports:
+      - "5050:80" # pgAdmin luistert nu op poort 80 (HTTP) intern
   depends_on:
     postgres:
       
