@@ -21,6 +21,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMINMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASSWORD}
       PGADMIN_ENABLE_TLS: "True"
+      PGADMIN_LISTEN_PORT: "443"
     ports:
       - "82:443"
     depends_on:
