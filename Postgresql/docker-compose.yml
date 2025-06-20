@@ -16,15 +16,13 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     container_name: ${PGADMINCONTAINERNAME}
-    restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMINMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASSWORD}
-
-    ports:
+  ports:
       - "5050:80" # pgAdmin luistert nu op poort 80 (HTTP) intern
-    depends_on:
-      postgres:
+  depends_on:
+    postgres:
       
     volumes:
       - /mnt/HC_Volume_102742537/DockerVolumes/pgadmin_data:/var/lib/pgadmin
