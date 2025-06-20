@@ -11,7 +11,6 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
-      - N8N_PUSH_BACKEND=sse
     volumes:
       - n8n_data:/home/node/.n8n
       - ./local-files:/files
