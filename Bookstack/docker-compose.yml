@@ -1,0 +1,39 @@
+
+version: '3'
+services:
+  bookstack:
+    image: solidnerd/bookstack
+    container_name: bookstack
+    restart: always
+    ports:
+      - "6875:80"
+    volumes:
+      - /mnt/HC_Volume_102742537/DockerVolumes/bookstack_data:/var/www/html/public/uploads
+      - /mnt/HC_Volume_102742537/DockerVolumes/bookstack_env:/var/www/html/.env
+
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - APP_URL=http://bookstack.clouddock.be
+      - DB_HOST=${DBNAME}
+      - DB_HOST=db
+      - DB_DATABASE=${DBDATABASE}
+      - DB_DATABASE=bookstack
+      - DB_USERNAME=${DBDATABASEUSER}
+      - DB_USERNAME=bookstack_user
+      - DB_PASSWORD=${DBDATABASESECRET}
+      - DB_PASSWORD=secret
+    depends_on:
+      - db
+  db:
+    image: mysql:5.7
+    container_name: bookstack-mysql
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${DBDATABASE}
+      - MYSQL_USER=${DBDATABASEUSER}
+      - MYSQL_PASSWORD=${DBDATABASESECRET}
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+    volumes:
+      - /mnt/HC_Volume_102742537/DockerVolumes/bookstack_db:/var/lib/mysql
+    
