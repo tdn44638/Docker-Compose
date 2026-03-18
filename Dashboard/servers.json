@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "DOCKERDB",
+      "Group": "Servers",
+      "Host": "10.20.30.2",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "pg",
+      "SSLMode": "prefer"
+    }
+  }
+}
