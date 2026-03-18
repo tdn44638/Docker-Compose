@@ -69,6 +69,25 @@ TABLE_COLUMN_OVERRIDES = {
     ],
 }
 
+TABLE_VIEW_OVERRIDES = {
+    ("public", "atera_devices", "windows10"): [
+        "customername",
+        "agentname",
+        "systemname",
+        "machinename",
+        "domainname",
+        "online",
+        "lastseen",
+        "currentloggedusers",
+        "lastloginuser",
+        "reportedfromip",
+        "os",
+        "ostype",
+        "osversion",
+        "monitored",
+    ],
+}
+
 
 def db_config():
     return {
@@ -150,6 +169,24 @@ def pick_default_columns(schema, table_name, columns, limit=10):
     return picked
 
 
+def is_windows10_row(row):
+    for key in ("os", "ostype"):
+        value = str(row.get(key, "")).lower()
+        if "windows 10" in value or "win10" in value or "windows10" in value:
+            return True
+    return False
+
+
+def pick_view_columns(schema, table_name, view_name, columns, limit=12):
+    overrides = TABLE_VIEW_OVERRIDES.get((schema, table_name, view_name))
+    if overrides:
+        by_name = {column["column_name"]: column for column in columns}
+        picked = [name for name in overrides if name in by_name]
+        if picked:
+            return picked[:limit]
+    return pick_default_columns(schema, table_name, columns, limit=limit)
+
+
 def connect():
     return psycopg2.connect(**db_config())
 
@@ -192,6 +229,22 @@ def fetch_tables():
 
                 cur.execute(sql.SQL("SELECT * FROM {}").format(quoted_table))
                 rows = cur.fetchall()
+                views = None
+
+                if (schema, name) == ("public", "atera_devices"):
+                    windows10_rows = [row for row in rows if is_windows10_row(row)]
+                    views = {
+                        "all": {
+                            "label": "Alle toestellen",
+                            "rows": rows,
+                            "suggested_columns": pick_default_columns(schema, name, columns),
+                        },
+                        "windows10": {
+                            "label": "Windows 10",
+                            "rows": windows10_rows,
+                            "suggested_columns": pick_view_columns(schema, name, "windows10", columns),
+                        },
+                    }
 
                 result.append(
                     {
@@ -200,6 +253,7 @@ def fetch_tables():
                         "columns": columns,
                         "suggested_columns": suggested_columns,
                         "rows": rows,
+                        "views": views,
                     }
                 )
 

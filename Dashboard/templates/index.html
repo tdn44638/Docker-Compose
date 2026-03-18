@@ -122,6 +122,38 @@
       flex-wrap: wrap;
     }
 
+    .view-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 18px 14px;
+      background: rgba(2, 6, 23, 0.18);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .view-tab {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.82);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .view-tab.active {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.32);
+      color: #e0f2fe;
+    }
+
+    .view-tab small {
+      color: var(--muted);
+    }
+
     .toolbar {
       display: grid;
       gap: 12px;
@@ -381,13 +413,15 @@
 
   <script>
     const refreshSeconds = {{ refresh_seconds }};
-    const STORAGE_PREFIX = "dashboard.visible-columns.v2";
+    const STORAGE_PREFIX = "dashboard.visible-columns.v3";
+    const VIEW_PREFIX = "dashboard.active-view.v1";
     const DEFAULT_VISIBLE_LIMIT = 10;
 
     const appState = {
       tables: [],
       searches: {},
       columnOrders: {},
+      activeViews: {},
       dragging: null,
     };
 
@@ -405,8 +439,56 @@
       return `${table.schema}.${table.name}`;
     }
 
+    function getActiveViewName(table) {
+      const key = tableKey(table);
+      if (!table.views) {
+        return "all";
+      }
+      if (appState.activeViews[key]) {
+        return appState.activeViews[key];
+      }
+
+      try {
+        const saved = localStorage.getItem(`${VIEW_PREFIX}.${key}`);
+        if (saved && table.views[saved]) {
+          appState.activeViews[key] = saved;
+          return saved;
+        }
+      } catch {
+        // Ignore storage failures.
+      }
+
+      return "all";
+    }
+
+    function setActiveView(table, viewName) {
+      const key = tableKey(table);
+      appState.activeViews[key] = viewName;
+      try {
+        localStorage.setItem(`${VIEW_PREFIX}.${key}`, viewName);
+      } catch {
+        // Ignore storage failures and keep the in-memory selection.
+      }
+    }
+
+    function currentStateKey(table) {
+      return `${tableKey(table)}::${getActiveViewName(table)}`;
+    }
+
+    function getViewData(table) {
+      const activeView = getActiveViewName(table);
+      if (table.views && table.views[activeView]) {
+        return table.views[activeView];
+      }
+      return {
+        label: "Alle toestellen",
+        rows: table.rows || [],
+        suggested_columns: table.suggested_columns || [],
+      };
+    }
+
     function storageKey(table) {
-      return `${STORAGE_PREFIX}.${tableKey(table)}`;
+      return `${STORAGE_PREFIX}.${currentStateKey(table)}`;
     }
 
     function normalize(value) {
@@ -430,7 +512,8 @@
     }
 
     function defaultVisibleColumns(table) {
-      const suggested = (table.suggested_columns || []).map((column) => (
+      const viewData = getViewData(table);
+      const suggested = (viewData.suggested_columns || []).map((column) => (
         typeof column === "string" ? column : column.column_name
       ));
       const allColumns = getAllColumns(table).map((column) => column.column_name);
@@ -491,11 +574,11 @@
     }
 
     function visibleSearchQuery(table) {
-      return appState.searches[tableKey(table)] || "";
+      return appState.searches[currentStateKey(table)] || "";
     }
 
     function setSearchQuery(table, value) {
-      appState.searches[tableKey(table)] = value;
+      appState.searches[currentStateKey(table)] = value;
     }
 
     function rowMatchesSearch(row, visibleColumns, searchQuery) {
@@ -510,23 +593,28 @@
 
     function applySearch(table) {
       const visibleColumns = getVisibleColumns(table);
-      const rows = table.rows || [];
+      const rows = getViewData(table).rows || [];
       const query = visibleSearchQuery(table);
       return rows.filter((row) => rowMatchesSearch(row, visibleColumns, query));
     }
 
-    function updateStats(key, totalRows, visibleRows, visibleColumnsCount, totalColumnsCount) {
-      const stats = document.querySelector(`[data-stats="${CSS.escape(key)}"]`);
+    function updateStats(displayKey, totalRows, visibleRows, visibleColumnsCount, totalColumnsCount, viewLabel, searchKey) {
+      const stats = document.querySelector(`[data-stats="${CSS.escape(displayKey)}"]`);
       if (stats) {
-        const active = normalize(appState.searches[key] || "") ? 1 : 0;
+        const active = normalize(appState.searches[searchKey] || "") ? 1 : 0;
         stats.textContent = active
           ? `${visibleRows} van ${totalRows} rijen, zoekfilter actief`
           : `${visibleRows} van ${totalRows} rijen`;
       }
 
-      const summary = document.querySelector(`[data-summary="${CSS.escape(key)}"]`);
+      const summary = document.querySelector(`[data-summary="${CSS.escape(displayKey)}"]`);
       if (summary) {
         summary.textContent = `${visibleColumnsCount} zichtbaar van ${totalColumnsCount} kolommen`;
+      }
+
+      const info = document.querySelector(`[data-card-info="${CSS.escape(displayKey)}"]`);
+      if (info) {
+        info.textContent = `${viewLabel}: ${visibleColumnsCount} zichtbaar van ${totalColumnsCount} kolommen, ${totalRows} rijen geladen`;
       }
     }
 
@@ -557,6 +645,37 @@
           <span class="chip-add">+</span>
           <span>${escapeHtml(column.column_name)}</span>
         </button>
+      `;
+    }
+
+    function renderViewTabs(table) {
+      if (!table.views) {
+        return "";
+      }
+
+      const key = tableKey(table);
+      const activeView = getActiveViewName(table);
+      const buttons = Object.entries(table.views).map(([viewName, view]) => {
+        const isActive = viewName === activeView;
+        const label = view.label || viewName;
+        const count = (view.rows || []).length;
+        return `
+          <button
+            class="view-tab ${isActive ? "active" : ""}"
+            type="button"
+            data-select-view="${escapeHtml(viewName)}"
+            data-table="${escapeHtml(key)}"
+          >
+            <span>${escapeHtml(label)}</span>
+            <small>${count}</small>
+          </button>
+        `;
+      }).join("");
+
+      return `
+        <div class="view-tabs" data-view-tabs="${escapeHtml(key)}">
+          ${buttons}
+        </div>
       `;
     }
 
@@ -591,6 +710,27 @@
       `;
     }
 
+    function renderSearchRow(table) {
+      const key = tableKey(table);
+      const searchKey = currentStateKey(table);
+      const searchQuery = visibleSearchQuery(table);
+      return `
+        <div class="toolbar" data-search-row="${escapeHtml(key)}">
+          <div class="search-row">
+            <label class="search-label" for="search-${escapeHtml(searchKey)}">Zoek in zichtbare kolommen</label>
+            <input
+              id="search-${escapeHtml(searchKey)}"
+              class="search-input"
+              type="text"
+              value="${escapeHtml(searchQuery)}"
+              placeholder="Typ om in deze tabel te zoeken..."
+              data-search="${escapeHtml(key)}"
+            >
+          </div>
+        </div>
+      `;
+    }
+
     function renderTableBody(table) {
       const visibleColumns = getVisibleColumns(table);
       const rows = applySearch(table);
@@ -607,17 +747,19 @@
 
     function renderCard(table) {
       const key = tableKey(table);
+      const viewData = getViewData(table);
       const totalColumns = getAllColumns(table).length;
-      const totalRows = (table.rows || []).length;
+      const totalRows = (viewData.rows || []).length;
       const searchQuery = visibleSearchQuery(table);
       const { header, body, visibleColumnsCount, rowsCount } = renderTableBody(table);
+      const viewLabel = viewData.label || getActiveViewName(table);
 
       return `
         <article class="card" data-card="${escapeHtml(key)}">
           <div class="card-head">
             <div>
               <div class="card-title">${escapeHtml(table.schema)}.${escapeHtml(table.name)}</div>
-              <div class="card-info" data-card-info="${escapeHtml(key)}">${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen</div>
+              <div class="card-info" data-card-info="${escapeHtml(key)}">${escapeHtml(viewLabel)}: ${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen, ${totalRows} rijen geladen</div>
             </div>
             <div class="head-actions">
               <span class="pill-muted" data-summary="${escapeHtml(key)}">${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen</span>
@@ -625,19 +767,8 @@
               <button class="button" type="button" data-clear-search="${escapeHtml(key)}">Clear search</button>
             </div>
           </div>
-          <div class="toolbar">
-            <div class="search-row">
-              <label class="search-label" for="search-${escapeHtml(key)}">Zoek in zichtbare kolommen</label>
-              <input
-                id="search-${escapeHtml(key)}"
-                class="search-input"
-                type="text"
-                value="${escapeHtml(searchQuery)}"
-                placeholder="Typ om in deze tabel te zoeken..."
-                data-search="${escapeHtml(key)}"
-              >
-            </div>
-          </div>
+          ${renderViewTabs(table)}
+          ${renderSearchRow(table)}
           ${renderColumnSelector(table)}
           <div class="table-wrap">
             <table>
@@ -654,6 +785,7 @@
       const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
       if (!card) return;
 
+      const viewData = getViewData(table);
       const { header, body, visibleColumnsCount, rowsCount } = renderTableBody(table);
       const head = card.querySelector(`[data-head="${CSS.escape(key)}"]`);
       const tbody = card.querySelector(`[data-body="${CSS.escape(key)}"]`);
@@ -662,10 +794,12 @@
 
       updateStats(
         key,
-        (table.rows || []).length,
+        (viewData.rows || []).length,
         rowsCount,
         visibleColumnsCount,
         getAllColumns(table).length,
+        viewData.label || getActiveViewName(table),
+        currentStateKey(table),
       );
     }
 
@@ -687,13 +821,29 @@
 
     function updateSearchInput(table) {
       const key = tableKey(table);
-      const input = document.querySelector(`[data-search="${CSS.escape(key)}"]`);
-      if (input) {
-        input.value = visibleSearchQuery(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const searchRow = card.querySelector(`[data-search-row="${CSS.escape(key)}"]`);
+      if (searchRow) {
+        searchRow.outerHTML = renderSearchRow(table);
+      }
+    }
+
+    function updateViewTabs(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const tabs = card.querySelector(`[data-view-tabs="${CSS.escape(key)}"]`);
+      const rendered = renderViewTabs(table);
+      if (tabs) {
+        tabs.outerHTML = rendered;
       }
     }
 
     function refreshCard(table) {
+      updateViewTabs(table);
       updateSearchInput(table);
       updateColumnChooser(table);
       updateTableView(table);
@@ -797,6 +947,16 @@
             refreshCard(table);
           }
         }
+
+        const viewButton = event.target.closest("[data-select-view]");
+        if (viewButton) {
+          const key = viewButton.dataset.table;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) {
+            setActiveView(table, viewButton.dataset.selectView);
+            refreshCard(table);
+          }
+        }
       });
 
       document.addEventListener("dragstart", (event) => {
@@ -859,10 +1019,12 @@
       appState.tables.forEach((table) => {
         updateStats(
           tableKey(table),
-          (table.rows || []).length,
+          (getViewData(table).rows || []).length,
           applySearch(table).length,
           getVisibleColumns(table).length,
           getAllColumns(table).length,
+          getViewData(table).label || getActiveViewName(table),
+          currentStateKey(table),
         );
       });
 

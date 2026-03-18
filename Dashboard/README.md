@@ -21,7 +21,15 @@ This stack deploys a small live HTML dashboard that reads tables from PostgreSQL
 - Lists all non-system tables in the configured database
 - Renders each table as HTML
 - Refreshes automatically every `DASHBOARD_REFRESH_SECONDS`
-- Shows up to 50 rows per table
+- Shows all rows per table
+- `public.atera_devices` has two views: `Alle toestellen` and `Windows 10`
+- Each view keeps its own visible columns and column order in the browser
+
+## Windows 10 View
+
+- Focuses on identifying the device owner, machine identity, and current activity
+- Uses a compact default column set for support-life visibility
+- You can still add or reorder more columns from the selector
 
 ## Notes
 
