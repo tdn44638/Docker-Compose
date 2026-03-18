@@ -448,21 +448,33 @@
           ${renderFilterControls(table)}
           <div class="table-wrap">
             <table>
-              <thead><tr>${header}</tr></thead>
-              <tbody>${body}</tbody>
+              <thead data-head><tr>${header}</tr></thead>
+              <tbody data-body>${body}</tbody>
             </table>
           </div>
         </article>
       `;
     }
 
-    function rerenderTable(tableData) {
+    function updateTableView(tableData) {
       const key = tableKey(tableData);
       const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
       if (!card) return;
 
-      card.outerHTML = renderTable(tableData);
-      attachHandlers();
+      const filteredRows = applyFilters(tableData);
+      const columns = tableData.columns || [];
+      const header = columns.map((column) => `<th>${escapeHtml(column.column_name)}</th>`).join("");
+      const body = filteredRows.length
+        ? filteredRows.map((row) => {
+            const cells = columns.map((column) => `<td>${escapeHtml(row[column.column_name])}</td>`).join("");
+            return `<tr>${cells}</tr>`;
+          }).join("")
+        : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
+
+      const tbody = card.querySelector("[data-body]");
+      const thead = card.querySelector("[data-head]");
+      if (tbody) tbody.innerHTML = body;
+      if (thead) thead.innerHTML = `<tr>${header}</tr>`;
       updateCardStats(key, tableData.rows.length, applyFilters(tableData).length);
     }
 
@@ -479,7 +491,7 @@
           appState.searches[table] = event.target.value;
           const tableData = appState.tables.find((entry) => tableKey(entry) === table);
           if (tableData) {
-            rerenderTable(tableData);
+            updateTableView(tableData);
           }
         });
       });
@@ -491,7 +503,7 @@
           ensureFilterState(table)[column] = event.target.value;
           const tableData = appState.tables.find((entry) => tableKey(entry) === table);
           if (tableData) {
-            rerenderTable(tableData);
+            updateTableView(tableData);
           }
         });
       });
@@ -503,7 +515,7 @@
           appState.searches[table] = "";
           const tableData = appState.tables.find((entry) => tableKey(entry) === table);
           if (tableData) {
-            rerenderTable(tableData);
+            updateTableView(tableData);
           }
         });
       });
