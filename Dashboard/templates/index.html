@@ -49,6 +49,62 @@
       box-shadow: var(--shadow);
     }
 
+    .dashboard-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 0 0 24px;
+    }
+
+    .overview-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.78));
+      box-shadow: var(--shadow);
+      padding: 18px;
+      min-height: 150px;
+    }
+
+    .overview-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -30px -30px auto;
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .overview-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .overview-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 1;
+    }
+
+    .overview-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .overview-good .overview-value { color: #86efac; }
+    .overview-bad .overview-value { color: #fca5a5; }
+    .overview-warning .overview-value { color: #fdba74; }
+    .overview-neutral .overview-value { color: #bfdbfe; }
+
     h1 {
       margin: 0 0 8px;
       font-size: clamp(2rem, 3vw, 3.25rem);
@@ -162,6 +218,52 @@
       background: rgba(2, 6, 23, 0.32);
     }
 
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 14px 18px 0;
+    }
+
+    .summary-card {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(15, 23, 42, 0.55);
+    }
+
+    .summary-label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .summary-good {
+      color: #86efac;
+    }
+
+    .summary-bad {
+      color: #fca5a5;
+    }
+
+    .summary-neutral {
+      color: #bfdbfe;
+    }
+
+    .summary-note {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
     .search-row {
       display: grid;
       gap: 6px;
@@ -211,6 +313,49 @@
       background: rgba(148, 163, 184, 0.10);
       border: 1px solid rgba(148, 163, 184, 0.16);
       color: var(--muted);
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .status-pill--good {
+      background: rgba(34, 197, 94, 0.14);
+      color: #bbf7d0;
+      border-color: rgba(34, 197, 94, 0.25);
+    }
+
+    .status-pill--bad {
+      background: rgba(248, 113, 113, 0.14);
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.25);
+    }
+
+    .status-pill--neutral {
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .row-online td {
+      background: linear-gradient(90deg, rgba(34, 197, 94, 0.04), transparent 22%);
+    }
+
+    .row-offline td {
+      background: linear-gradient(90deg, rgba(248, 113, 113, 0.04), transparent 22%);
+    }
+
+    .cell-mono {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
       font-size: 0.88rem;
       white-space: nowrap;
     }
@@ -403,6 +548,8 @@
       </div>
     </section>
 
+    <div id="overview"></div>
+
     <div id="tables" class="grid"></div>
 
     <div class="footer">
@@ -493,6 +640,170 @@
 
     function normalize(value) {
       return String(value ?? "").trim().toLowerCase();
+    }
+
+    function parseDateValue(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function daysSince(date) {
+      return Math.floor((Date.now() - date.getTime()) / 86400000);
+    }
+
+    function isTruthy(value) {
+      return value === true || normalize(value) === "true";
+    }
+
+    function formatRelativeDate(value) {
+      const date = parseDateValue(value);
+      if (!date) {
+        return null;
+      }
+
+      const days = daysSince(date);
+      if (days <= 0) return "vandaag";
+      if (days === 1) return "1 dag geleden";
+      return `${days} dagen geleden`;
+    }
+
+    function formatDateTime(value) {
+      const date = parseDateValue(value);
+      if (!date) {
+        return escapeHtml(value);
+      }
+      return date.toLocaleString();
+    }
+
+    function computeViewMetrics(table) {
+      const rows = getViewData(table).rows || [];
+      let online = 0;
+      let recent = 0;
+      let stale = 0;
+
+      rows.forEach((row) => {
+        if (isTruthy(row.online)) {
+          online += 1;
+        }
+
+        const lastSeen = parseDateValue(row.lastseen);
+        if (lastSeen) {
+          const age = daysSince(lastSeen);
+          if (age <= 14) {
+            recent += 1;
+          }
+          if (age >= 30) {
+            stale += 1;
+          }
+        }
+      });
+
+      return {
+        total: rows.length,
+        online,
+        offline: Math.max(rows.length - online, 0),
+        recent,
+        stale,
+      };
+    }
+
+    function computeOverviewMetrics(table) {
+      const metrics = computeViewMetrics(table);
+      let attention = 0;
+      const rows = getViewData(table).rows || [];
+
+      rows.forEach((row) => {
+        const lastSeen = parseDateValue(row.lastseen);
+        const staleRow = lastSeen ? daysSince(lastSeen) >= 30 : true;
+        const offlineRow = !isTruthy(row.online);
+        if (offlineRow || staleRow) {
+          attention += 1;
+        }
+      });
+
+      return {
+        total: metrics.total,
+        online: metrics.online,
+        offline: metrics.offline,
+        attention,
+        label: getViewData(table).label || getActiveViewName(table),
+      };
+    }
+
+    function renderMetricCard(label, value, note, tone) {
+      return `
+        <div class="summary-card">
+          <div class="summary-label">${escapeHtml(label)}</div>
+          <div class="summary-value ${tone ? `summary-${tone}` : ""}">${escapeHtml(value)}</div>
+          ${note ? `<div class="summary-note">${escapeHtml(note)}</div>` : ""}
+        </div>
+      `;
+    }
+
+    function getOverviewTable() {
+      return appState.tables.find((table) => table.schema === "public" && table.name === "atera_devices")
+        || appState.tables.find((table) => table.views)
+        || appState.tables[0]
+        || null;
+    }
+
+    function renderOverviewSection() {
+      const table = getOverviewTable();
+      if (!table) {
+        return "";
+      }
+
+      const metrics = computeOverviewMetrics(table);
+      return `
+        <section class="dashboard-overview" data-overview-root>
+          <div class="overview-card overview-good">
+            <div class="overview-label">Online</div>
+            <div class="overview-value">${escapeHtml(metrics.online)}</div>
+            <div class="overview-note">Toestellen actief bereikbaar in ${escapeHtml(metrics.label)}</div>
+          </div>
+          <div class="overview-card overview-bad">
+            <div class="overview-label">Offline</div>
+            <div class="overview-value">${escapeHtml(metrics.offline)}</div>
+            <div class="overview-note">Nu niet bereikbaar of uitgeschakeld</div>
+          </div>
+          <div class="overview-card overview-warning">
+            <div class="overview-label">Aandacht nodig</div>
+            <div class="overview-value">${escapeHtml(metrics.attention)}</div>
+            <div class="overview-note">Offline of langer dan 30 dagen niet gezien</div>
+          </div>
+        </section>
+      `;
+    }
+
+    function formatCell(columnName, value) {
+      const name = String(columnName || "").toLowerCase();
+
+      if (name === "online" || name === "monitored") {
+        const active = isTruthy(value);
+        return `<span class="status-pill ${active ? "status-pill--good" : "status-pill--bad"}">${active ? "Ja" : "Nee"}</span>`;
+      }
+
+      if (name === "currentloggedusers") {
+        const text = normalize(value) ? String(value) : "-";
+        return `<span class="status-pill status-pill--neutral">${escapeHtml(text)}</span>`;
+      }
+
+      if (name === "lastseen" || name === "created" || name === "modified") {
+        const relative = formatRelativeDate(value);
+        const absolute = formatDateTime(value);
+        return `
+          <div>
+            <div>${absolute}</div>
+            ${relative ? `<div class="summary-note">${escapeHtml(relative)}</div>` : ""}
+          </div>
+        `;
+      }
+
+      if (name === "reportedfromip" || name === "ipaddresses" || name === "macaddresses" || name === "osversion" || name === "osbuild") {
+        return `<span class="cell-mono">${escapeHtml(value)}</span>`;
+      }
+
+      return escapeHtml(value);
     }
 
     function getAllColumns(table) {
@@ -679,6 +990,20 @@
       `;
     }
 
+    function renderViewSummary(table) {
+      const key = tableKey(table);
+      const metrics = computeViewMetrics(table);
+      return `
+        <div class="summary-grid" data-summary-grid="${escapeHtml(key)}">
+          ${renderMetricCard("Totaal", metrics.total, "Totaal aantal toestellen in deze view", "neutral")}
+          ${renderMetricCard("Online", metrics.online, "Momenteel online", "good")}
+          ${renderMetricCard("Offline", metrics.offline, "Momenteel niet bereikbaar", "bad")}
+          ${renderMetricCard("Recent gezien", metrics.recent, "Last seen binnen 14 dagen", "neutral")}
+          ${renderMetricCard("Aandacht", metrics.stale, "Last seen ouder dan 30 dagen", "bad")}
+        </div>
+      `;
+    }
+
     function renderColumnSelector(table) {
       const key = tableKey(table);
       const visibleColumns = getVisibleColumns(table);
@@ -737,8 +1062,9 @@
       const header = visibleColumns.map((column) => `<th>${escapeHtml(column.column_name)}</th>`).join("");
       const body = rows.length
         ? rows.map((row) => {
-            const cells = visibleColumns.map((column) => `<td>${escapeHtml(row[column.column_name])}</td>`).join("");
-            return `<tr>${cells}</tr>`;
+            const rowClass = isTruthy(row.online) ? "row-online" : "row-offline";
+            const cells = visibleColumns.map((column) => `<td>${formatCell(column.column_name, row[column.column_name])}</td>`).join("");
+            return `<tr class="${rowClass}">${cells}</tr>`;
           }).join("")
         : `<tr><td colspan="${Math.max(visibleColumns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
 
@@ -768,6 +1094,7 @@
             </div>
           </div>
           ${renderViewTabs(table)}
+          ${renderViewSummary(table)}
           ${renderSearchRow(table)}
           ${renderColumnSelector(table)}
           <div class="table-wrap">
@@ -819,6 +1146,23 @@
       }
     }
 
+    function updateViewSummary(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const summary = card.querySelector(`[data-summary-grid="${CSS.escape(key)}"]`);
+      if (summary) {
+        summary.outerHTML = renderViewSummary(table);
+      }
+    }
+
+    function updateOverviewSection() {
+      const root = document.getElementById("overview");
+      if (!root) return;
+      root.innerHTML = renderOverviewSection();
+    }
+
     function updateSearchInput(table) {
       const key = tableKey(table);
       const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
@@ -844,9 +1188,11 @@
 
     function refreshCard(table) {
       updateViewTabs(table);
+      updateViewSummary(table);
       updateSearchInput(table);
       updateColumnChooser(table);
       updateTableView(table);
+      updateOverviewSection();
     }
 
     function isInteractionActive() {
@@ -1015,6 +1361,11 @@
       tables.innerHTML = appState.tables.length
         ? appState.tables.map((table) => renderCard(table)).join("")
         : `<div class="card"><div class="empty">Geen tabellen gevonden in deze database.</div></div>`;
+
+      const overviewRoot = document.getElementById("overview");
+      if (overviewRoot) {
+        overviewRoot.innerHTML = renderOverviewSection();
+      }
 
       appState.tables.forEach((table) => {
         updateStats(

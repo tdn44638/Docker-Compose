@@ -47,9 +47,7 @@ FILTER_NAME_PENALTY = (
 TABLE_COLUMN_OVERRIDES = {
     ("public", "atera_devices"): [
         "customername",
-        "agentname",
         "systemname",
-        "machinename",
         "domainname",
         "online",
         "lastseen",
@@ -72,19 +70,13 @@ TABLE_COLUMN_OVERRIDES = {
 TABLE_VIEW_OVERRIDES = {
     ("public", "atera_devices", "windows10"): [
         "customername",
-        "agentname",
         "systemname",
-        "machinename",
         "domainname",
         "online",
         "lastseen",
         "currentloggedusers",
         "lastloginuser",
         "reportedfromip",
-        "os",
-        "ostype",
-        "osversion",
-        "monitored",
     ],
 }
 
