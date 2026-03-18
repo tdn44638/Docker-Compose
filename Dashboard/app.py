@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone
 
 import psycopg2
@@ -8,6 +9,40 @@ from flask import Flask, jsonify, render_template
 
 
 app = Flask(__name__)
+
+FILTER_NAME_BONUS = (
+    "name",
+    "customer",
+    "agent",
+    "system",
+    "machine",
+    "host",
+    "domain",
+    "folder",
+    "status",
+    "type",
+    "email",
+    "ip",
+    "serial",
+    "model",
+    "manufacturer",
+    "version",
+    "os",
+    "date",
+    "created",
+    "modified",
+)
+
+FILTER_NAME_PENALTY = (
+    "guid",
+    "uuid",
+    "id",
+    "password",
+    "token",
+    "hash",
+    "binary",
+    "blob",
+)
 
 
 def db_config():
@@ -21,7 +56,47 @@ def db_config():
 
 
 def refresh_seconds():
-    return int(os.getenv("DASHBOARD_REFRESH_SECONDS", "5"))
+    return int(os.getenv("DASHBOARD_REFRESH_SECONDS", "15"))
+
+
+def column_score(column):
+    name = (column["column_name"] or "").lower()
+    data_type = (column["data_type"] or "").lower()
+    score = 0
+
+    if data_type in {"character varying", "character", "text", "uuid", "date", "timestamp without time zone", "timestamp with time zone", "boolean", "integer", "bigint", "smallint", "numeric", "real", "double precision"}:
+        score += 4
+
+    for token in FILTER_NAME_BONUS:
+        if token in name:
+            score += 3
+
+    for token in FILTER_NAME_PENALTY:
+        if token in name:
+            score -= 5
+
+    if re.search(r"(created|modified|date|time|status|name|type|host|domain|ip|serial|model|manufacturer|version|os)$", name):
+        score += 2
+
+    return score
+
+
+def pick_useful_filter_columns(columns, limit=6):
+    ranked = sorted(columns, key=lambda column: (column_score(column), column["column_name"]))
+    picked = []
+    for column in reversed(ranked):
+        if column_score(column) < 0:
+            continue
+        picked.append(
+            {
+                "column_name": column["column_name"],
+                "data_type": column["data_type"],
+                "is_nullable": column["is_nullable"],
+            }
+        )
+        if len(picked) >= limit:
+            break
+    return picked
 
 
 def connect():
@@ -57,6 +132,7 @@ def fetch_tables():
                     (schema, name),
                 )
                 columns = cur.fetchall()
+                filter_columns = pick_useful_filter_columns(columns)
 
                 quoted_table = sql.SQL("{}.{}").format(
                     sql.Identifier(schema),
@@ -73,6 +149,7 @@ def fetch_tables():
                         "schema": schema,
                         "name": name,
                         "columns": columns,
+                        "filter_columns": filter_columns,
                         "rows": rows,
                     }
                 )
