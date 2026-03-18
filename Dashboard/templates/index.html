@@ -18,6 +18,7 @@
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
@@ -101,6 +102,7 @@
       padding: 16px 18px;
       border-bottom: 1px solid var(--border);
       background: rgba(15, 23, 42, 0.4);
+      flex-wrap: wrap;
     }
 
     .card-title {
@@ -111,6 +113,13 @@
     .card-info {
       color: var(--muted);
       font-size: 0.9rem;
+    }
+
+    .head-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     .toolbar {
@@ -126,37 +135,12 @@
       gap: 6px;
     }
 
-    .filter-grid {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    }
-
-    .filter-item {
-      display: grid;
-      gap: 6px;
-    }
-
-    .filter-label {
+    .search-label,
+    .bucket-title {
       font-size: 0.78rem;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
-    }
-
-    .filter-input {
-      width: 100%;
-      border: 1px solid rgba(148, 163, 184, 0.20);
-      background: rgba(15, 23, 42, 0.82);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 9px 10px;
-      outline: none;
-    }
-
-    .filter-input:focus {
-      border-color: rgba(56, 189, 248, 0.7);
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
     }
 
     .search-input {
@@ -173,14 +157,6 @@
     .search-input:focus {
       border-color: rgba(56, 189, 248, 0.7);
       box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
-    }
-
-    .filter-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: flex-end;
-      flex-wrap: wrap;
     }
 
     .button {
@@ -205,6 +181,111 @@
       color: var(--muted);
       font-size: 0.88rem;
       white-space: nowrap;
+    }
+
+    .columns-panel {
+      border-bottom: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.22);
+      padding: 0 18px;
+    }
+
+    .columns-panel > summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 0;
+      color: #dbeafe;
+      font-weight: 600;
+    }
+
+    .columns-panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .columns-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding-bottom: 16px;
+    }
+
+    .bucket {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 12px;
+      min-height: 140px;
+    }
+
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      max-height: 240px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .column-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .column-chip--visible {
+      background: rgba(56, 189, 248, 0.10);
+      border-color: rgba(56, 189, 248, 0.24);
+      cursor: grab;
+    }
+
+    .column-chip.dragging {
+      opacity: 0.45;
+    }
+
+    .chip-handle {
+      color: var(--muted);
+      letter-spacing: -0.1em;
+      font-size: 1.1rem;
+    }
+
+    .chip-remove {
+      border: 0;
+      background: transparent;
+      color: #fb7185;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0 0 2px;
+    }
+
+    .chip-add {
+      border: 0;
+      background: transparent;
+      color: #86efac;
+      cursor: pointer;
+      font-size: 0.95rem;
+      padding: 0;
+    }
+
+    .columns-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding-bottom: 16px;
+    }
+
+    .columns-note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 10px;
     }
 
     .table-wrap {
@@ -260,6 +341,12 @@
       border-radius: 8px;
     }
 
+    @media (max-width: 900px) {
+      .columns-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 700px) {
       .wrap { padding: 16px; }
       .hero { flex-direction: column; align-items: flex-start; }
@@ -274,7 +361,7 @@
         <div class="pill">Live view</div>
         <h1>Database Dashboard</h1>
         <p class="sub">
-          Bekijk de inhoud van alle tabellen in je PostgreSQL-database als HTML-tabellen met automatische verversing.
+          Bekijk de inhoud van de belangrijkste kolommen per tabel, met een flexibele kolommen-kiezer en automatische verversing.
         </p>
       </div>
       <div class="meta">
@@ -294,11 +381,14 @@
 
   <script>
     const refreshSeconds = {{ refresh_seconds }};
+    const STORAGE_PREFIX = "dashboard.visible-columns.v2";
+    const DEFAULT_VISIBLE_LIMIT = 10;
+
     const appState = {
       tables: [],
-      filters: {},
       searches: {},
-      isEditing: false,
+      columnOrders: {},
+      dragging: null,
     };
 
     function escapeHtml(value) {
@@ -315,234 +405,471 @@
       return `${table.schema}.${table.name}`;
     }
 
-    function ensureFilterState(key) {
-      if (!appState.filters[key]) {
-        appState.filters[key] = {};
-      }
-      return appState.filters[key];
-    }
-
-    function ensureSearchState(key) {
-      if (typeof appState.searches[key] === "undefined") {
-        appState.searches[key] = "";
-      }
-      return appState.searches[key];
+    function storageKey(table) {
+      return `${STORAGE_PREFIX}.${tableKey(table)}`;
     }
 
     function normalize(value) {
       return String(value ?? "").trim().toLowerCase();
     }
 
-    function countActiveFilters(filters, searchQuery) {
-      const columnFilters = Object.values(filters).filter((value) => normalize(value)).length;
-      return columnFilters + (normalize(searchQuery) ? 1 : 0);
+    function getAllColumns(table) {
+      return table.columns || [];
     }
 
-    function rowMatchesFilters(row, columns, filters, searchQuery) {
-      const query = normalize(searchQuery);
-      if (query) {
-        const searchable = columns
-          .map((column) => normalize(row[column.column_name]))
-          .join(" ");
-        if (!searchable.includes(query)) {
+    function sanitizeColumnOrder(order, allColumns) {
+      const validNames = new Set(allColumns.map((column) => column.column_name));
+      const seen = new Set();
+      return (order || []).filter((name) => {
+        if (!validNames.has(name) || seen.has(name)) {
           return false;
         }
-      }
-
-      return columns.every((column) => {
-        const value = normalize(filters[column.column_name]);
-        if (!value) return true;
-        return normalize(row[column.column_name]).includes(value);
+        seen.add(name);
+        return true;
       });
     }
 
-    function applyFilters(table) {
+    function defaultVisibleColumns(table) {
+      const suggested = (table.suggested_columns || []).map((column) => (
+        typeof column === "string" ? column : column.column_name
+      ));
+      const allColumns = getAllColumns(table).map((column) => column.column_name);
+      const fallback = allColumns.slice(0, DEFAULT_VISIBLE_LIMIT);
+      const combined = sanitizeColumnOrder(suggested.length ? suggested : fallback, getAllColumns(table));
+      return combined.length ? combined : fallback.slice(0, 1);
+    }
+
+    function loadColumnOrder(table) {
       const key = tableKey(table);
-      const filters = ensureFilterState(key);
-      const searchQuery = ensureSearchState(key);
-      const columns = table.columns || [];
+      if (appState.columnOrders[key]) {
+        return appState.columnOrders[key];
+      }
+
+      const allColumns = getAllColumns(table);
+      let order = null;
+
+      try {
+        const saved = localStorage.getItem(storageKey(table));
+        if (saved) {
+          order = sanitizeColumnOrder(JSON.parse(saved), allColumns);
+        }
+      } catch {
+        order = null;
+      }
+
+      if (!order || !order.length) {
+        order = defaultVisibleColumns(table);
+      }
+
+      appState.columnOrders[key] = order;
+      return order;
+    }
+
+    function saveColumnOrder(table, order) {
+      const key = tableKey(table);
+      const cleaned = sanitizeColumnOrder(order, getAllColumns(table));
+      const finalOrder = cleaned.length ? cleaned : defaultVisibleColumns(table);
+      appState.columnOrders[key] = finalOrder;
+      try {
+        localStorage.setItem(storageKey(table), JSON.stringify(finalOrder));
+      } catch {
+        // Ignore storage failures and keep the in-memory order.
+      }
+      return finalOrder;
+    }
+
+    function getVisibleColumns(table) {
+      const order = loadColumnOrder(table);
+      const allColumns = getAllColumns(table);
+      const lookup = new Map(allColumns.map((column) => [column.column_name, column]));
+      return order.map((name) => lookup.get(name)).filter(Boolean);
+    }
+
+    function getAvailableColumns(table) {
+      const visibleNames = new Set(loadColumnOrder(table));
+      return getAllColumns(table).filter((column) => !visibleNames.has(column.column_name));
+    }
+
+    function visibleSearchQuery(table) {
+      return appState.searches[tableKey(table)] || "";
+    }
+
+    function setSearchQuery(table, value) {
+      appState.searches[tableKey(table)] = value;
+    }
+
+    function rowMatchesSearch(row, visibleColumns, searchQuery) {
+      const query = normalize(searchQuery);
+      if (!query) return true;
+
+      const searchable = visibleColumns
+        .map((column) => normalize(row[column.column_name]))
+        .join(" ");
+      return searchable.includes(query);
+    }
+
+    function applySearch(table) {
+      const visibleColumns = getVisibleColumns(table);
       const rows = table.rows || [];
-      return rows.filter((row) => rowMatchesFilters(row, columns, filters, searchQuery));
+      const query = visibleSearchQuery(table);
+      return rows.filter((row) => rowMatchesSearch(row, visibleColumns, query));
     }
 
-    function updateCardStats(key, totalRows, visibleRows) {
-      const element = document.querySelector(`[data-stats="${CSS.escape(key)}"]`);
-      if (!element) return;
+    function updateStats(key, totalRows, visibleRows, visibleColumnsCount, totalColumnsCount) {
+      const stats = document.querySelector(`[data-stats="${CSS.escape(key)}"]`);
+      if (stats) {
+        const active = normalize(appState.searches[key] || "") ? 1 : 0;
+        stats.textContent = active
+          ? `${visibleRows} van ${totalRows} rijen, zoekfilter actief`
+          : `${visibleRows} van ${totalRows} rijen`;
+      }
 
-      const active = countActiveFilters(appState.filters[key] || {}, appState.searches[key] || "");
-      element.textContent = active
-        ? `${visibleRows} van ${totalRows} rijen zichtbaar, ${active} filter(s) actief`
-        : `${visibleRows} van ${totalRows} rijen zichtbaar`;
+      const summary = document.querySelector(`[data-summary="${CSS.escape(key)}"]`);
+      if (summary) {
+        summary.textContent = `${visibleColumnsCount} zichtbaar van ${totalColumnsCount} kolommen`;
+      }
     }
 
-    function renderFilterControls(table) {
-      const key = tableKey(table);
-      const filterColumns = table.filter_columns || [];
-      const searchQuery = ensureSearchState(key);
-      const hidden = Math.max((table.columns || []).length - filterColumns.length, 0);
-      const filters = ensureFilterState(key);
-
-      const filterInputs = filterColumns.map((column) => `
-        <div class="filter-item">
-          <label class="filter-label" for="filter-${escapeHtml(key)}-${escapeHtml(column.column_name)}">
-            ${escapeHtml(column.column_name)}
-          </label>
-          <input
-            id="filter-${escapeHtml(key)}-${escapeHtml(column.column_name)}"
-            class="filter-input"
-            type="text"
-            value="${escapeHtml(filters[column.column_name] || "")}"
-            placeholder="Filter..."
-            data-table="${escapeHtml(key)}"
-            data-column="${escapeHtml(column.column_name)}"
-          >
-        </div>
-      `).join("");
-
+    function renderVisibleColumnChip(table, column, index) {
       return `
-        <div class="toolbar">
-          <div class="search-row">
-            <label class="filter-label" for="search-${escapeHtml(key)}">Zoek in deze tabel</label>
-            <input
-              id="search-${escapeHtml(key)}"
-              class="search-input"
-              type="text"
-              value="${escapeHtml(searchQuery)}"
-              placeholder="Zoek over alle kolommen..."
-              data-search="${escapeHtml(key)}"
-            >
-          </div>
-          <div class="filter-grid">
-            ${filterInputs}
-          </div>
-          <div class="filter-actions">
-            <span class="pill-muted">${hidden ? `+ ${hidden} verborgen kolommen` : "Alle filters zichtbaar"}</span>
-            <span class="pill-muted" data-stats="${escapeHtml(key)}"></span>
-            <button class="button" type="button" data-clear="${escapeHtml(key)}">Clear</button>
-          </div>
+        <div
+          class="column-chip column-chip--visible"
+          draggable="true"
+          data-visible-column="${escapeHtml(column.column_name)}"
+          data-table="${escapeHtml(tableKey(table))}"
+          data-index="${index}"
+        >
+          <span class="chip-handle">⋮⋮</span>
+          <span>${escapeHtml(column.column_name)}</span>
+          <button class="chip-remove" type="button" data-remove-column="${escapeHtml(column.column_name)}" aria-label="Verberg ${escapeHtml(column.column_name)}">×</button>
         </div>
       `;
     }
 
-    function renderTable(table) {
-      const columns = table.columns || [];
-      const rows = applyFilters(table);
+    function renderAvailableColumnChip(table, column) {
+      return `
+        <button
+          class="column-chip"
+          type="button"
+          data-add-column="${escapeHtml(column.column_name)}"
+          data-table="${escapeHtml(tableKey(table))}"
+        >
+          <span class="chip-add">+</span>
+          <span>${escapeHtml(column.column_name)}</span>
+        </button>
+      `;
+    }
+
+    function renderColumnSelector(table) {
       const key = tableKey(table);
-      const totalRows = table.rows ? table.rows.length : 0;
-      const header = columns.map((column) => `<th>${escapeHtml(column.column_name)}</th>`).join("");
+      const visibleColumns = getVisibleColumns(table);
+      const availableColumns = getAvailableColumns(table);
+
+      return `
+        <details class="columns-panel" data-columns-panel>
+          <summary>Kolommen kiezen</summary>
+          <div class="columns-layout">
+            <div class="bucket">
+              <div class="bucket-title">Zichtbaar</div>
+              <div class="chip-list" data-visible-list="${escapeHtml(key)}">
+                ${visibleColumns.map((column, index) => renderVisibleColumnChip(table, column, index)).join("")}
+              </div>
+              <div class="columns-note">Sleep om de volgorde te wijzigen. Klik op × om te verbergen.</div>
+            </div>
+            <div class="bucket">
+              <div class="bucket-title">Beschikbaar</div>
+              <div class="chip-list" data-available-list="${escapeHtml(key)}">
+                ${availableColumns.map((column) => renderAvailableColumnChip(table, column)).join("")}
+              </div>
+              <div class="columns-note">Klik op een kolom om die toe te voegen.</div>
+            </div>
+          </div>
+          <div class="columns-footer">
+            <button class="button" type="button" data-reset-columns="${escapeHtml(key)}">Standaard selectie</button>
+          </div>
+        </details>
+      `;
+    }
+
+    function renderTableBody(table) {
+      const visibleColumns = getVisibleColumns(table);
+      const rows = applySearch(table);
+      const header = visibleColumns.map((column) => `<th>${escapeHtml(column.column_name)}</th>`).join("");
       const body = rows.length
         ? rows.map((row) => {
-            const cells = columns.map((column) => `<td>${escapeHtml(row[column.column_name])}</td>`).join("");
+            const cells = visibleColumns.map((column) => `<td>${escapeHtml(row[column.column_name])}</td>`).join("");
             return `<tr>${cells}</tr>`;
           }).join("")
-        : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
+        : `<tr><td colspan="${Math.max(visibleColumns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
+
+      return { header, body, visibleColumnsCount: visibleColumns.length, rowsCount: rows.length };
+    }
+
+    function renderCard(table) {
+      const key = tableKey(table);
+      const totalColumns = getAllColumns(table).length;
+      const totalRows = (table.rows || []).length;
+      const searchQuery = visibleSearchQuery(table);
+      const { header, body, visibleColumnsCount, rowsCount } = renderTableBody(table);
 
       return `
         <article class="card" data-card="${escapeHtml(key)}">
           <div class="card-head">
             <div>
               <div class="card-title">${escapeHtml(table.schema)}.${escapeHtml(table.name)}</div>
-              <div class="card-info">${columns.length} kolommen, ${totalRows} rijen geladen, ${table.filter_columns ? table.filter_columns.length : 0} snelle filters</div>
+              <div class="card-info" data-card-info="${escapeHtml(key)}">${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen</div>
+            </div>
+            <div class="head-actions">
+              <span class="pill-muted" data-summary="${escapeHtml(key)}">${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen</span>
+              <span class="pill-muted" data-stats="${escapeHtml(key)}">${rowsCount} van ${totalRows} rijen</span>
+              <button class="button" type="button" data-clear-search="${escapeHtml(key)}">Clear search</button>
             </div>
           </div>
-          ${renderFilterControls(table)}
+          <div class="toolbar">
+            <div class="search-row">
+              <label class="search-label" for="search-${escapeHtml(key)}">Zoek in zichtbare kolommen</label>
+              <input
+                id="search-${escapeHtml(key)}"
+                class="search-input"
+                type="text"
+                value="${escapeHtml(searchQuery)}"
+                placeholder="Typ om in deze tabel te zoeken..."
+                data-search="${escapeHtml(key)}"
+              >
+            </div>
+          </div>
+          ${renderColumnSelector(table)}
           <div class="table-wrap">
             <table>
-              <thead data-head><tr>${header}</tr></thead>
-              <tbody data-body>${body}</tbody>
+              <thead data-head="${escapeHtml(key)}"><tr>${header}</tr></thead>
+              <tbody data-body="${escapeHtml(key)}">${body}</tbody>
             </table>
           </div>
         </article>
       `;
     }
 
-    function updateTableView(tableData) {
-      const key = tableKey(tableData);
+    function updateTableView(table) {
+      const key = tableKey(table);
       const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
       if (!card) return;
 
-      const filteredRows = applyFilters(tableData);
-      const columns = tableData.columns || [];
-      const header = columns.map((column) => `<th>${escapeHtml(column.column_name)}</th>`).join("");
-      const body = filteredRows.length
-        ? filteredRows.map((row) => {
-            const cells = columns.map((column) => `<td>${escapeHtml(row[column.column_name])}</td>`).join("");
-            return `<tr>${cells}</tr>`;
-          }).join("")
-        : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
-
-      const tbody = card.querySelector("[data-body]");
-      const thead = card.querySelector("[data-head]");
+      const { header, body, visibleColumnsCount, rowsCount } = renderTableBody(table);
+      const head = card.querySelector(`[data-head="${CSS.escape(key)}"]`);
+      const tbody = card.querySelector(`[data-body="${CSS.escape(key)}"]`);
+      if (head) head.innerHTML = `<tr>${header}</tr>`;
       if (tbody) tbody.innerHTML = body;
-      if (thead) thead.innerHTML = `<tr>${header}</tr>`;
-      updateCardStats(key, tableData.rows.length, applyFilters(tableData).length);
+
+      updateStats(
+        key,
+        (table.rows || []).length,
+        rowsCount,
+        visibleColumnsCount,
+        getAllColumns(table).length,
+      );
     }
 
-    function isFilterEditing() {
+    function updateColumnChooser(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const selector = card.querySelector("[data-columns-panel]");
+      const wasOpen = selector ? selector.open : false;
+      if (selector) {
+        selector.outerHTML = renderColumnSelector(table);
+      }
+      const nextSelector = card.querySelector("[data-columns-panel]");
+      if (nextSelector && wasOpen) {
+        nextSelector.open = true;
+      }
+    }
+
+    function updateSearchInput(table) {
+      const key = tableKey(table);
+      const input = document.querySelector(`[data-search="${CSS.escape(key)}"]`);
+      if (input) {
+        input.value = visibleSearchQuery(table);
+      }
+    }
+
+    function refreshCard(table) {
+      updateSearchInput(table);
+      updateColumnChooser(table);
+      updateTableView(table);
+    }
+
+    function isInteractionActive() {
       const active = document.activeElement;
-      if (!active) return false;
-      return active.matches("[data-search], [data-table][data-column]");
+      if (active && active.matches("[data-search]")) {
+        return true;
+      }
+      return Boolean(document.querySelector("details[data-columns-panel][open]"));
     }
 
-    function attachHandlers() {
-      document.querySelectorAll("[data-search]").forEach((input) => {
-        input.addEventListener("input", (event) => {
-          const table = event.target.dataset.search;
-          appState.searches[table] = event.target.value;
-          const tableData = appState.tables.find((entry) => tableKey(entry) === table);
-          if (tableData) {
-            updateTableView(tableData);
-          }
-        });
+    function moveVisibleColumn(table, fromColumn, toColumn) {
+      if (!table) {
+        return;
+      }
+      const key = tableKey(table);
+      const order = loadColumnOrder(table).slice();
+      const fromIndex = order.indexOf(fromColumn);
+      const toIndex = order.indexOf(toColumn);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+        return;
+      }
+
+      const [item] = order.splice(fromIndex, 1);
+      order.splice(toIndex, 0, item);
+      saveColumnOrder(table, order);
+      refreshCard(table);
+    }
+
+    function addColumn(table, columnName) {
+      const order = loadColumnOrder(table).slice();
+      if (!order.includes(columnName)) {
+        order.push(columnName);
+        saveColumnOrder(table, order);
+        refreshCard(table);
+      }
+    }
+
+    function removeColumn(table, columnName) {
+      const order = loadColumnOrder(table).slice();
+      if (order.length <= 1) {
+        return;
+      }
+      const next = order.filter((name) => name !== columnName);
+      saveColumnOrder(table, next);
+      refreshCard(table);
+    }
+
+    function resetColumns(table) {
+      saveColumnOrder(table, defaultVisibleColumns(table));
+      refreshCard(table);
+    }
+
+    function setupInteractions() {
+      document.addEventListener("input", (event) => {
+        const searchInput = event.target.closest("[data-search]");
+        if (!searchInput) return;
+
+        const key = searchInput.dataset.search;
+        const table = appState.tables.find((entry) => tableKey(entry) === key);
+        if (!table) return;
+
+        setSearchQuery(table, searchInput.value);
+        updateTableView(table);
       });
 
-      document.querySelectorAll("[data-table][data-column]").forEach((input) => {
-        input.addEventListener("input", (event) => {
-          const table = event.target.dataset.table;
-          const column = event.target.dataset.column;
-          ensureFilterState(table)[column] = event.target.value;
-          const tableData = appState.tables.find((entry) => tableKey(entry) === table);
-          if (tableData) {
-            updateTableView(tableData);
+      document.addEventListener("click", (event) => {
+        const addButton = event.target.closest("[data-add-column]");
+        if (addButton) {
+          const key = addButton.dataset.table;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) addColumn(table, addButton.dataset.addColumn);
+          return;
+        }
+
+        const removeButton = event.target.closest("[data-remove-column]");
+        if (removeButton) {
+          const card = removeButton.closest("[data-card]");
+          const key = card?.dataset.card;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) removeColumn(table, removeButton.dataset.removeColumn);
+          return;
+        }
+
+        const resetButton = event.target.closest("[data-reset-columns]");
+        if (resetButton) {
+          const key = resetButton.dataset.resetColumns;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) resetColumns(table);
+          return;
+        }
+
+        const clearSearchButton = event.target.closest("[data-clear-search]");
+        if (clearSearchButton) {
+          const key = clearSearchButton.dataset.clearSearch;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) {
+            setSearchQuery(table, "");
+            refreshCard(table);
           }
-        });
+        }
       });
 
-      document.querySelectorAll("[data-clear]").forEach((button) => {
-        button.addEventListener("click", (event) => {
-          const table = event.currentTarget.dataset.clear;
-          appState.filters[table] = {};
-          appState.searches[table] = "";
-          const tableData = appState.tables.find((entry) => tableKey(entry) === table);
-          if (tableData) {
-            updateTableView(tableData);
-          }
-        });
+      document.addEventListener("dragstart", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (!chip) return;
+
+        appState.dragging = {
+          table: chip.dataset.table,
+          column: chip.dataset.visibleColumn,
+        };
+        chip.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", chip.dataset.visibleColumn);
+      });
+
+      document.addEventListener("dragend", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (chip) {
+          chip.classList.remove("dragging");
+        }
+        appState.dragging = null;
+      });
+
+      document.addEventListener("dragover", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (!chip || !appState.dragging) return;
+        if (chip.dataset.table !== appState.dragging.table) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      });
+
+      document.addEventListener("drop", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (!chip || !appState.dragging) return;
+        if (chip.dataset.table !== appState.dragging.table) return;
+
+        event.preventDefault();
+        moveVisibleColumn(
+          appState.tables.find((entry) => tableKey(entry) === appState.dragging.table),
+          appState.dragging.column,
+          chip.dataset.visibleColumn
+        );
       });
     }
 
     async function loadSnapshot() {
-      if (isFilterEditing()) {
+      if (isInteractionActive()) {
         return;
       }
 
       const response = await fetch("/api/snapshot", { cache: "no-store" });
       const data = await response.json();
       appState.tables = data.tables || [];
-      const tables = document.getElementById("tables");
 
+      const tables = document.getElementById("tables");
       tables.innerHTML = appState.tables.length
-        ? appState.tables.map((table) => renderTable(table)).join("")
+        ? appState.tables.map((table) => renderCard(table)).join("")
         : `<div class="card"><div class="empty">Geen tabellen gevonden in deze database.</div></div>`;
 
       appState.tables.forEach((table) => {
-        updateCardStats(tableKey(table), table.rows.length, applyFilters(table).length);
+        updateStats(
+          tableKey(table),
+          (table.rows || []).length,
+          applySearch(table).length,
+          getVisibleColumns(table).length,
+          getAllColumns(table).length,
+        );
       });
 
-      attachHandlers();
       document.getElementById("updated").textContent = new Date(data.generated_at).toLocaleString();
     }
 
+    setupInteractions();
     loadSnapshot();
     setInterval(loadSnapshot, refreshSeconds * 1000);
   </script>

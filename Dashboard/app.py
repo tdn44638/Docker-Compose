@@ -44,6 +44,31 @@ FILTER_NAME_PENALTY = (
     "blob",
 )
 
+TABLE_COLUMN_OVERRIDES = {
+    ("public", "atera_devices"): [
+        "customername",
+        "agentname",
+        "systemname",
+        "machinename",
+        "domainname",
+        "online",
+        "lastseen",
+        "monitored",
+        "currentloggedusers",
+        "reportedfromip",
+        "agentversion",
+        "os",
+        "ostype",
+        "osversion",
+        "osbuild",
+        "ipaddresses",
+        "macaddresses",
+        "created",
+        "modified",
+        "foldername",
+    ],
+}
+
 
 def db_config():
     return {
@@ -81,7 +106,7 @@ def column_score(column):
     return score
 
 
-def pick_useful_filter_columns(columns, limit=6):
+def pick_useful_columns(columns, limit=10):
     ranked = sorted(columns, key=lambda column: (column_score(column), column["column_name"]))
     picked = []
     for column in reversed(ranked):
@@ -96,6 +121,32 @@ def pick_useful_filter_columns(columns, limit=6):
         )
         if len(picked) >= limit:
             break
+    return picked
+
+
+def pick_default_columns(schema, table_name, columns, limit=10):
+    overrides = TABLE_COLUMN_OVERRIDES.get((schema, table_name), [])
+    by_name = {column["column_name"]: column for column in columns}
+    picked = []
+
+    for column_name in overrides:
+        column = by_name.get(column_name)
+        if column and column_name not in picked:
+            picked.append(column_name)
+        if len(picked) >= limit:
+            return picked
+
+    fallback = pick_useful_columns(columns, limit=limit)
+    for column in fallback:
+        name = column["column_name"]
+        if name not in picked:
+            picked.append(name)
+        if len(picked) >= limit:
+            break
+
+    if not picked:
+        picked = [column["column_name"] for column in columns[:limit]]
+
     return picked
 
 
@@ -132,7 +183,7 @@ def fetch_tables():
                     (schema, name),
                 )
                 columns = cur.fetchall()
-                filter_columns = pick_useful_filter_columns(columns)
+                suggested_columns = pick_default_columns(schema, name, columns)
 
                 quoted_table = sql.SQL("{}.{}").format(
                     sql.Identifier(schema),
@@ -147,7 +198,7 @@ def fetch_tables():
                         "schema": schema,
                         "name": name,
                         "columns": columns,
-                        "filter_columns": filter_columns,
+                        "suggested_columns": suggested_columns,
                         "rows": rows,
                     }
                 )
