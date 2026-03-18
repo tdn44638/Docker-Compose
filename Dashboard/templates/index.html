@@ -115,6 +115,81 @@
       font-size: 0.9rem;
     }
 
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.32);
+      flex-wrap: wrap;
+    }
+
+    .filter-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      width: 100%;
+    }
+
+    .filter-item {
+      display: grid;
+      gap: 6px;
+    }
+
+    .filter-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .filter-input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.20);
+      background: rgba(15, 23, 42, 0.82);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    .filter-input:focus {
+      border-color: rgba(56, 189, 248, 0.7);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+    }
+
+    .filter-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    .button {
+      border: 1px solid rgba(148, 163, 184, 0.20);
+      background: rgba(56, 189, 248, 0.10);
+      color: #e0f2fe;
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .button:hover {
+      background: rgba(56, 189, 248, 0.16);
+    }
+
+    .pill-muted {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
     .table-wrap {
       overflow: auto;
       max-height: 560px;
@@ -202,6 +277,11 @@
 
   <script>
     const refreshSeconds = {{ refresh_seconds }};
+    const appState = {
+      tables: [],
+      generatedAt: null,
+      filters: {},
+    };
 
     function escapeHtml(value) {
       if (value === null || value === undefined) return "";
@@ -213,25 +293,113 @@
         .replaceAll("'", "&#39;");
     }
 
-    function renderTable(table) {
+    function tableKey(table) {
+      return `${table.schema}.${table.name}`;
+    }
+
+    function ensureFilterState(key) {
+      if (!appState.filters[key]) {
+        appState.filters[key] = {};
+      }
+      return appState.filters[key];
+    }
+
+    function normalize(value) {
+      return String(value ?? "").trim().toLowerCase();
+    }
+
+    function rowMatchesFilters(row, columns, filters) {
+      return columns.every((column) => {
+        const query = normalize(filters[column.column_name]);
+        if (!query) return true;
+        const cell = normalize(row[column.column_name]);
+        return cell.includes(query);
+      });
+    }
+
+    function countActiveFilters(filters) {
+      return Object.values(filters).filter((value) => normalize(value)).length;
+    }
+
+    function applyFilters(table) {
+      const key = tableKey(table);
+      const filters = ensureFilterState(key);
       const columns = table.columns || [];
       const rows = table.rows || [];
+      return rows.filter((row) => rowMatchesFilters(row, columns, filters));
+    }
+
+    function updateCardStats(key, totalRows, visibleRows) {
+      const element = document.querySelector(`[data-stats="${CSS.escape(key)}"]`);
+      if (element) {
+        const active = countActiveFilters(appState.filters[key] || {});
+        element.textContent = active
+          ? `${visibleRows} van ${totalRows} rijen zichtbaar, ${active} filter(s) actief`
+          : `${visibleRows} van ${totalRows} rijen zichtbaar`;
+      }
+    }
+
+    function renderFilterControls(table) {
+      const key = tableKey(table);
+      const filters = ensureFilterState(key);
+      const columns = table.columns || [];
+
+      if (!columns.length) {
+        return "";
+      }
+
+      const controls = columns.map((column) => `
+        <div class="filter-item">
+          <label class="filter-label" for="filter-${escapeHtml(key)}-${escapeHtml(column.column_name)}">
+            ${escapeHtml(column.column_name)}
+          </label>
+          <input
+            id="filter-${escapeHtml(key)}-${escapeHtml(column.column_name)}"
+            class="filter-input"
+            type="text"
+            value="${escapeHtml(filters[column.column_name] || '')}"
+            placeholder="Filter..."
+            data-table="${escapeHtml(key)}"
+            data-column="${escapeHtml(column.column_name)}"
+          >
+        </div>
+      `).join("");
+
+      return `
+        <div class="toolbar">
+          <div class="filter-grid">
+            ${controls}
+          </div>
+          <div class="filter-actions">
+            <span class="pill-muted" data-stats="${escapeHtml(key)}"></span>
+            <button class="button" type="button" data-clear="${escapeHtml(key)}">Clear</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTable(table) {
+      const columns = table.columns || [];
+      const rows = applyFilters(table);
+      const key = tableKey(table);
       const header = columns.map((c) => `<th>${escapeHtml(c.column_name)}</th>`).join("");
       const body = rows.length
         ? rows.map((row) => {
             const cells = columns.map((c) => `<td>${escapeHtml(row[c.column_name])}</td>`).join("");
             return `<tr>${cells}</tr>`;
-          }).join("")
+        }).join("")
         : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
 
+      const totalRows = table.rows ? table.rows.length : 0;
       return `
-        <article class="card">
+        <article class="card" data-card="${escapeHtml(key)}">
           <div class="card-head">
             <div>
               <div class="card-title">${escapeHtml(table.schema)}.${escapeHtml(table.name)}</div>
-              <div class="card-info">${columns.length} kolommen, ${rows.length} rijen getoond</div>
+              <div class="card-info">${columns.length} kolommen, ${totalRows} rijen geladen</div>
             </div>
           </div>
+          ${renderFilterControls(table)}
           <div class="table-wrap">
             <table>
               <thead><tr>${header}</tr></thead>
@@ -242,15 +410,60 @@
       `;
     }
 
+    function attachHandlers() {
+      document.querySelectorAll("[data-table][data-column]").forEach((input) => {
+        input.addEventListener("input", (event) => {
+          const table = event.target.dataset.table;
+          const column = event.target.dataset.column;
+          const value = event.target.value;
+          ensureFilterState(table)[column] = value;
+
+          const tableData = appState.tables.find((entry) => tableKey(entry) === table);
+          if (tableData) {
+            const card = document.querySelector(`[data-card="${CSS.escape(table)}"]`);
+            if (card) {
+              card.outerHTML = renderTable(tableData);
+              attachHandlers();
+              updateCardStats(table, tableData.rows.length, applyFilters(tableData).length);
+            }
+          }
+        });
+      });
+
+      document.querySelectorAll("[data-clear]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          const table = event.currentTarget.dataset.clear;
+          appState.filters[table] = {};
+
+          const tableData = appState.tables.find((entry) => tableKey(entry) === table);
+          if (tableData) {
+            const card = document.querySelector(`[data-card="${CSS.escape(table)}"]`);
+            if (card) {
+              card.outerHTML = renderTable(tableData);
+              attachHandlers();
+              updateCardStats(table, tableData.rows.length, applyFilters(tableData).length);
+            }
+          }
+        });
+      });
+    }
+
     async function loadSnapshot() {
       const response = await fetch("/api/snapshot", { cache: "no-store" });
       const data = await response.json();
+      appState.tables = data.tables || [];
+      appState.generatedAt = data.generated_at;
       const tables = document.getElementById("tables");
 
-      tables.innerHTML = data.tables.length
-        ? data.tables.map(renderTable).join("")
+      tables.innerHTML = appState.tables.length
+        ? appState.tables.map((table) => renderTable(table)).join("")
         : `<div class="card"><div class="empty">Geen tabellen gevonden in deze database.</div></div>`;
 
+      appState.tables.forEach((table) => {
+        updateCardStats(tableKey(table), table.rows.length, applyFilters(table).length);
+      });
+
+      attachHandlers();
       document.getElementById("updated").textContent = new Date(data.generated_at).toLocaleString();
     }
 
