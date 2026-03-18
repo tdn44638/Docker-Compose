@@ -139,9 +139,7 @@ def fetch_tables():
                     sql.Identifier(name),
                 )
 
-                cur.execute(
-                    sql.SQL("SELECT * FROM {} LIMIT 50").format(quoted_table)
-                )
+                cur.execute(sql.SQL("SELECT * FROM {}").format(quoted_table))
                 rows = cur.fetchall()
 
                 result.append(
