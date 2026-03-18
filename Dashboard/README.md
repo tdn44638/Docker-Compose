@@ -1,25 +1,30 @@
 # Dashboard
 
-This stack deploys a `pgAdmin` web UI that connects to the PostgreSQL server shown in the screenshot.
+This stack deploys a small live HTML dashboard that reads tables from PostgreSQL and refreshes automatically.
 
 ## Files
 
-- `docker-compose.yml`: pgAdmin service definition
-- `.env.example`: local environment values to copy to `.env`
-- `servers.json`: pre-registered PostgreSQL server entry
+- `docker-compose.yml`: the dashboard service
+- `Dockerfile`: container image for the app
+- `app.py`: Flask application and PostgreSQL queries
+- `templates/index.html`: dashboard UI
+- `.env.example`: environment values to copy to `.env`
 
 ## Start
 
-1. Copy `.env.example` to `.env` and adjust the values.
-2. Run `docker compose up -d`.
-3. Open pgAdmin on `http://localhost:5050`.
+1. Copy `.env.example` to `.env` and adjust the database password if needed.
+2. Run `docker compose up -d --build`.
+3. Open `http://localhost:5051`.
 
-## Preconfigured server
+## Behavior
 
-- Name: `DOCKERDB`
-- Host: `10.20.30.2`
-- Port: `5432`
-- Maintenance DB: `postgres`
-- Username: `pg`
+- Lists all non-system tables in the configured database
+- Renders each table as HTML
+- Refreshes automatically every `DASHBOARD_REFRESH_SECONDS`
+- Shows up to 50 rows per table
 
-You will still need the PostgreSQL password for the connection unless you add it manually in pgAdmin.
+## Notes
+
+- `DB_HOST` is set to `10.20.30.2` by default because that is the host shown in your screenshot.
+- `DB_NAME` defaults to `CRITIQDB`, which appears to be the database selected in pgAdmin.
+- If your PostgreSQL server is inside the same Docker network, change `DB_HOST` to the service name or container IP that is reachable from this stack.
