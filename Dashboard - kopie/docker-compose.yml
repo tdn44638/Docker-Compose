@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  dashboard:
+    build: .
+    container_name: ${DASHBOARD_CONTAINER_NAME}
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT}:8000"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DASHBOARD_REFRESH_SECONDS: ${DASHBOARD_REFRESH_SECONDS}

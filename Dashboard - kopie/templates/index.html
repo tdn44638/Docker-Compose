@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Database Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(15, 23, 42, 0.88);
+      --panel-2: rgba(30, 41, 59, 0.88);
+      --border: rgba(148, 163, 184, 0.18);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.20), transparent 30%),
+        radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 28%),
+        linear-gradient(180deg, #050816, var(--bg) 30%, #0f172a 100%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-end;
+      margin-bottom: 24px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.78));
+      box-shadow: var(--shadow);
+    }
+
+    .dashboard-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 0 0 24px;
+    }
+
+    .overview-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.78));
+      box-shadow: var(--shadow);
+      padding: 18px;
+      min-height: 150px;
+    }
+
+    .overview-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -30px -30px auto;
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .overview-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .overview-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 1;
+    }
+
+    .overview-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .overview-good .overview-value { color: #86efac; }
+    .overview-bad .overview-value { color: #fca5a5; }
+    .overview-warning .overview-value { color: #fdba74; }
+    .overview-neutral .overview-value { color: #bfdbfe; }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 3vw, 3.25rem);
+      letter-spacing: -0.04em;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .meta {
+      display: grid;
+      gap: 10px;
+      min-width: 260px;
+    }
+
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: #cffafe;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      width: fit-content;
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.4);
+      flex-wrap: wrap;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .card-info {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .head-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 18px 14px;
+      background: rgba(2, 6, 23, 0.18);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .view-tab {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.82);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .view-tab.active {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.32);
+      color: #e0f2fe;
+    }
+
+    .view-tab small {
+      color: var(--muted);
+    }
+
+    .toolbar {
+      display: grid;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.32);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 14px 18px 0;
+    }
+
+    .summary-card {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(15, 23, 42, 0.55);
+    }
+
+    .summary-label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .summary-good {
+      color: #86efac;
+    }
+
+    .summary-bad {
+      color: #fca5a5;
+    }
+
+    .summary-neutral {
+      color: #bfdbfe;
+    }
+
+    .summary-note {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .search-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .search-label,
+    .bucket-title {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .search-input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.20);
+      background: rgba(15, 23, 42, 0.92);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 11px 12px;
+      outline: none;
+      font: inherit;
+    }
+
+    .search-input:focus {
+      border-color: rgba(56, 189, 248, 0.7);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+    }
+
+    .button {
+      border: 1px solid rgba(148, 163, 184, 0.20);
+      background: rgba(56, 189, 248, 0.10);
+      color: #e0f2fe;
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .button:hover {
+      background: rgba(56, 189, 248, 0.16);
+    }
+
+    .pill-muted {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: var(--muted);
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .status-pill--good {
+      background: rgba(34, 197, 94, 0.14);
+      color: #bbf7d0;
+      border-color: rgba(34, 197, 94, 0.25);
+    }
+
+    .status-pill--bad {
+      background: rgba(248, 113, 113, 0.14);
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.25);
+    }
+
+    .status-pill--neutral {
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .row-online td {
+      background: linear-gradient(90deg, rgba(34, 197, 94, 0.04), transparent 22%);
+    }
+
+    .row-offline td {
+      background: linear-gradient(90deg, rgba(248, 113, 113, 0.04), transparent 22%);
+    }
+
+    .cell-mono {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .columns-panel {
+      border-bottom: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.22);
+      padding: 0 18px;
+    }
+
+    .columns-panel > summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 0;
+      color: #dbeafe;
+      font-weight: 600;
+    }
+
+    .columns-panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .columns-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding-bottom: 16px;
+    }
+
+    .bucket {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 12px;
+      min-height: 140px;
+    }
+
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      max-height: 240px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .column-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .column-chip--visible {
+      background: rgba(56, 189, 248, 0.10);
+      border-color: rgba(56, 189, 248, 0.24);
+      cursor: grab;
+    }
+
+    .column-chip.dragging {
+      opacity: 0.45;
+    }
+
+    .chip-handle {
+      color: var(--muted);
+      letter-spacing: -0.1em;
+      font-size: 1.1rem;
+    }
+
+    .chip-remove {
+      border: 0;
+      background: transparent;
+      color: #fb7185;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0 0 2px;
+    }
+
+    .chip-add {
+      border: 0;
+      background: transparent;
+      color: #86efac;
+      cursor: pointer;
+      font-size: 0.95rem;
+      padding: 0;
+    }
+
+    .columns-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding-bottom: 16px;
+    }
+
+    .columns-note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 10px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 560px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 100%;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.92rem;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #111827;
+      z-index: 1;
+      color: #dbeafe;
+      font-weight: 600;
+    }
+
+    tr:hover td {
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    code {
+      background: rgba(148, 163, 184, 0.14);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .columns-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .wrap { padding: 16px; }
+      .hero { flex-direction: column; align-items: flex-start; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div>
+        <div class="pill">Live view</div>
+        <h1>Database Dashboard</h1>
+        <p class="sub">
+          Bekijk de inhoud van de belangrijkste kolommen per tabel, met een flexibele kolommen-kiezer en automatische verversing.
+        </p>
+      </div>
+      <div class="meta">
+        <div class="pill">Host: <code>{{ db_host }}:{{ db_port }}</code></div>
+        <div class="pill">Database: <code>{{ db_name }}</code></div>
+        <div class="pill">Refresh: <code>{{ refresh_seconds }}s</code></div>
+      </div>
+    </section>
+
+    <div id="overview"></div>
+
+    <div id="tables" class="grid"></div>
+
+    <div class="footer">
+      <div>Last update: <span id="updated">loading...</span></div>
+      <div>Auto refresh is enabled.</div>
+    </div>
+  </div>
+
+  <script>
+    const refreshSeconds = {{ refresh_seconds }};
+    const STORAGE_PREFIX = "dashboard.visible-columns.v3";
+    const VIEW_PREFIX = "dashboard.active-view.v1";
+    const DEFAULT_VISIBLE_LIMIT = 10;
+
+    const appState = {
+      tables: [],
+      searches: {},
+      columnOrders: {},
+      activeViews: {},
+      dragging: null,
+    };
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return "";
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function tableKey(table) {
+      return `${table.schema}.${table.name}`;
+    }
+
+    function getActiveViewName(table) {
+      const key = tableKey(table);
+      if (!table.views) {
+        return "all";
+      }
+      if (appState.activeViews[key]) {
+        return appState.activeViews[key];
+      }
+
+      try {
+        const saved = localStorage.getItem(`${VIEW_PREFIX}.${key}`);
+        if (saved && table.views[saved]) {
+          appState.activeViews[key] = saved;
+          return saved;
+        }
+      } catch {
+        // Ignore storage failures.
+      }
+
+      return "all";
+    }
+
+    function setActiveView(table, viewName) {
+      const key = tableKey(table);
+      appState.activeViews[key] = viewName;
+      try {
+        localStorage.setItem(`${VIEW_PREFIX}.${key}`, viewName);
+      } catch {
+        // Ignore storage failures and keep the in-memory selection.
+      }
+    }
+
+    function currentStateKey(table) {
+      return `${tableKey(table)}::${getActiveViewName(table)}`;
+    }
+
+    function getViewData(table) {
+      const activeView = getActiveViewName(table);
+      if (table.views && table.views[activeView]) {
+        return table.views[activeView];
+      }
+      return {
+        label: "Alle toestellen",
+        rows: table.rows || [],
+        suggested_columns: table.suggested_columns || [],
+      };
+    }
+
+    function storageKey(table) {
+      return `${STORAGE_PREFIX}.${currentStateKey(table)}`;
+    }
+
+    function normalize(value) {
+      return String(value ?? "").trim().toLowerCase();
+    }
+
+    function parseDateValue(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function daysSince(date) {
+      return Math.floor((Date.now() - date.getTime()) / 86400000);
+    }
+
+    function isTruthy(value) {
+      return value === true || normalize(value) === "true";
+    }
+
+    function formatRelativeDate(value) {
+      const date = parseDateValue(value);
+      if (!date) {
+        return null;
+      }
+
+      const days = daysSince(date);
+      if (days <= 0) return "vandaag";
+      if (days === 1) return "1 dag geleden";
+      return `${days} dagen geleden`;
+    }
+
+    function formatDateTime(value) {
+      const date = parseDateValue(value);
+      if (!date) {
+        return escapeHtml(value);
+      }
+      return date.toLocaleString();
+    }
+
+    function computeViewMetrics(table) {
+      const rows = getViewData(table).rows || [];
+      let online = 0;
+      let recent = 0;
+      let stale = 0;
+
+      rows.forEach((row) => {
+        if (isTruthy(row.online)) {
+          online += 1;
+        }
+
+        const lastSeen = parseDateValue(row.lastseen);
+        if (lastSeen) {
+          const age = daysSince(lastSeen);
+          if (age <= 14) {
+            recent += 1;
+          }
+          if (age >= 30) {
+            stale += 1;
+          }
+        }
+      });
+
+      return {
+        total: rows.length,
+        online,
+        offline: Math.max(rows.length - online, 0),
+        recent,
+        stale,
+      };
+    }
+
+    function computeOverviewMetrics(table) {
+      const metrics = computeViewMetrics(table);
+      let attention = 0;
+      const rows = getViewData(table).rows || [];
+
+      rows.forEach((row) => {
+        const lastSeen = parseDateValue(row.lastseen);
+        const staleRow = lastSeen ? daysSince(lastSeen) >= 30 : true;
+        const offlineRow = !isTruthy(row.online);
+        if (offlineRow || staleRow) {
+          attention += 1;
+        }
+      });
+
+      return {
+        total: metrics.total,
+        online: metrics.online,
+        offline: metrics.offline,
+        attention,
+        label: getViewData(table).label || getActiveViewName(table),
+      };
+    }
+
+    function renderMetricCard(label, value, note, tone) {
+      return `
+        <div class="summary-card">
+          <div class="summary-label">${escapeHtml(label)}</div>
+          <div class="summary-value ${tone ? `summary-${tone}` : ""}">${escapeHtml(value)}</div>
+          ${note ? `<div class="summary-note">${escapeHtml(note)}</div>` : ""}
+        </div>
+      `;
+    }
+
+    function getOverviewTable() {
+      return appState.tables.find((table) => table.schema === "public" && table.name === "atera_devices")
+        || appState.tables.find((table) => table.views)
+        || appState.tables[0]
+        || null;
+    }
+
+    function renderOverviewSection() {
+      const table = getOverviewTable();
+      if (!table) {
+        return "";
+      }
+
+      const metrics = computeOverviewMetrics(table);
+      return `
+        <section class="dashboard-overview" data-overview-root>
+          <div class="overview-card overview-good">
+            <div class="overview-label">Online</div>
+            <div class="overview-value">${escapeHtml(metrics.online)}</div>
+            <div class="overview-note">Toestellen actief bereikbaar in ${escapeHtml(metrics.label)}</div>
+          </div>
+          <div class="overview-card overview-bad">
+            <div class="overview-label">Offline</div>
+            <div class="overview-value">${escapeHtml(metrics.offline)}</div>
+            <div class="overview-note">Nu niet bereikbaar of uitgeschakeld</div>
+          </div>
+          <div class="overview-card overview-warning">
+            <div class="overview-label">Aandacht nodig</div>
+            <div class="overview-value">${escapeHtml(metrics.attention)}</div>
+            <div class="overview-note">Offline of langer dan 30 dagen niet gezien</div>
+          </div>
+        </section>
+      `;
+    }
+
+    function formatCell(columnName, value) {
+      const name = String(columnName || "").toLowerCase();
+
+      if (name === "online" || name === "monitored") {
+        const active = isTruthy(value);
+        return `<span class="status-pill ${active ? "status-pill--good" : "status-pill--bad"}">${active ? "Ja" : "Nee"}</span>`;
+      }
+
+      if (name === "currentloggedusers") {
+        const text = normalize(value) ? String(value) : "-";
+        return `<span class="status-pill status-pill--neutral">${escapeHtml(text)}</span>`;
+      }
+
+      if (name === "lastseen" || name === "created" || name === "modified") {
+        const relative = formatRelativeDate(value);
+        const absolute = formatDateTime(value);
+        return `
+          <div>
+            <div>${absolute}</div>
+            ${relative ? `<div class="summary-note">${escapeHtml(relative)}</div>` : ""}
+          </div>
+        `;
+      }
+
+      if (name === "reportedfromip" || name === "ipaddresses" || name === "macaddresses" || name === "osversion" || name === "osbuild") {
+        return `<span class="cell-mono">${escapeHtml(value)}</span>`;
+      }
+
+      return escapeHtml(value);
+    }
+
+    function getAllColumns(table) {
+      return table.columns || [];
+    }
+
+    function sanitizeColumnOrder(order, allColumns) {
+      const validNames = new Set(allColumns.map((column) => column.column_name));
+      const seen = new Set();
+      return (order || []).filter((name) => {
+        if (!validNames.has(name) || seen.has(name)) {
+          return false;
+        }
+        seen.add(name);
+        return true;
+      });
+    }
+
+    function defaultVisibleColumns(table) {
+      const viewData = getViewData(table);
+      const suggested = (viewData.suggested_columns || []).map((column) => (
+        typeof column === "string" ? column : column.column_name
+      ));
+      const allColumns = getAllColumns(table).map((column) => column.column_name);
+      const fallback = allColumns.slice(0, DEFAULT_VISIBLE_LIMIT);
+      const combined = sanitizeColumnOrder(suggested.length ? suggested : fallback, getAllColumns(table));
+      return combined.length ? combined : fallback.slice(0, 1);
+    }
+
+    function loadColumnOrder(table) {
+      const key = tableKey(table);
+      if (appState.columnOrders[key]) {
+        return appState.columnOrders[key];
+      }
+
+      const allColumns = getAllColumns(table);
+      let order = null;
+
+      try {
+        const saved = localStorage.getItem(storageKey(table));
+        if (saved) {
+          order = sanitizeColumnOrder(JSON.parse(saved), allColumns);
+        }
+      } catch {
+        order = null;
+      }
+
+      if (!order || !order.length) {
+        order = defaultVisibleColumns(table);
+      }
+
+      appState.columnOrders[key] = order;
+      return order;
+    }
+
+    function saveColumnOrder(table, order) {
+      const key = tableKey(table);
+      const cleaned = sanitizeColumnOrder(order, getAllColumns(table));
+      const finalOrder = cleaned.length ? cleaned : defaultVisibleColumns(table);
+      appState.columnOrders[key] = finalOrder;
+      try {
+        localStorage.setItem(storageKey(table), JSON.stringify(finalOrder));
+      } catch {
+        // Ignore storage failures and keep the in-memory order.
+      }
+      return finalOrder;
+    }
+
+    function getVisibleColumns(table) {
+      const order = loadColumnOrder(table);
+      const allColumns = getAllColumns(table);
+      const lookup = new Map(allColumns.map((column) => [column.column_name, column]));
+      return order.map((name) => lookup.get(name)).filter(Boolean);
+    }
+
+    function getAvailableColumns(table) {
+      const visibleNames = new Set(loadColumnOrder(table));
+      return getAllColumns(table).filter((column) => !visibleNames.has(column.column_name));
+    }
+
+    function visibleSearchQuery(table) {
+      return appState.searches[currentStateKey(table)] || "";
+    }
+
+    function setSearchQuery(table, value) {
+      appState.searches[currentStateKey(table)] = value;
+    }
+
+    function rowMatchesSearch(row, visibleColumns, searchQuery) {
+      const query = normalize(searchQuery);
+      if (!query) return true;
+
+      const searchable = visibleColumns
+        .map((column) => normalize(row[column.column_name]))
+        .join(" ");
+      return searchable.includes(query);
+    }
+
+    function applySearch(table) {
+      const visibleColumns = getVisibleColumns(table);
+      const rows = getViewData(table).rows || [];
+      const query = visibleSearchQuery(table);
+      return rows.filter((row) => rowMatchesSearch(row, visibleColumns, query));
+    }
+
+    function updateStats(displayKey, totalRows, visibleRows, visibleColumnsCount, totalColumnsCount, viewLabel, searchKey) {
+      const stats = document.querySelector(`[data-stats="${CSS.escape(displayKey)}"]`);
+      if (stats) {
+        const active = normalize(appState.searches[searchKey] || "") ? 1 : 0;
+        stats.textContent = active
+          ? `${visibleRows} van ${totalRows} rijen, zoekfilter actief`
+          : `${visibleRows} van ${totalRows} rijen`;
+      }
+
+      const summary = document.querySelector(`[data-summary="${CSS.escape(displayKey)}"]`);
+      if (summary) {
+        summary.textContent = `${visibleColumnsCount} zichtbaar van ${totalColumnsCount} kolommen`;
+      }
+
+      const info = document.querySelector(`[data-card-info="${CSS.escape(displayKey)}"]`);
+      if (info) {
+        info.textContent = `${viewLabel}: ${visibleColumnsCount} zichtbaar van ${totalColumnsCount} kolommen, ${totalRows} rijen geladen`;
+      }
+    }
+
+    function renderVisibleColumnChip(table, column, index) {
+      return `
+        <div
+          class="column-chip column-chip--visible"
+          draggable="true"
+          data-visible-column="${escapeHtml(column.column_name)}"
+          data-table="${escapeHtml(tableKey(table))}"
+          data-index="${index}"
+        >
+          <span class="chip-handle">⋮⋮</span>
+          <span>${escapeHtml(column.column_name)}</span>
+          <button class="chip-remove" type="button" data-remove-column="${escapeHtml(column.column_name)}" aria-label="Verberg ${escapeHtml(column.column_name)}">×</button>
+        </div>
+      `;
+    }
+
+    function renderAvailableColumnChip(table, column) {
+      return `
+        <button
+          class="column-chip"
+          type="button"
+          data-add-column="${escapeHtml(column.column_name)}"
+          data-table="${escapeHtml(tableKey(table))}"
+        >
+          <span class="chip-add">+</span>
+          <span>${escapeHtml(column.column_name)}</span>
+        </button>
+      `;
+    }
+
+    function renderViewTabs(table) {
+      if (!table.views) {
+        return "";
+      }
+
+      const key = tableKey(table);
+      const activeView = getActiveViewName(table);
+      const buttons = Object.entries(table.views).map(([viewName, view]) => {
+        const isActive = viewName === activeView;
+        const label = view.label || viewName;
+        const count = (view.rows || []).length;
+        return `
+          <button
+            class="view-tab ${isActive ? "active" : ""}"
+            type="button"
+            data-select-view="${escapeHtml(viewName)}"
+            data-table="${escapeHtml(key)}"
+          >
+            <span>${escapeHtml(label)}</span>
+            <small>${count}</small>
+          </button>
+        `;
+      }).join("");
+
+      return `
+        <div class="view-tabs" data-view-tabs="${escapeHtml(key)}">
+          ${buttons}
+        </div>
+      `;
+    }
+
+    function renderViewSummary(table) {
+      const key = tableKey(table);
+      const metrics = computeViewMetrics(table);
+      return `
+        <div class="summary-grid" data-summary-grid="${escapeHtml(key)}">
+          ${renderMetricCard("Totaal", metrics.total, "Totaal aantal toestellen in deze view", "neutral")}
+          ${renderMetricCard("Online", metrics.online, "Momenteel online", "good")}
+          ${renderMetricCard("Offline", metrics.offline, "Momenteel niet bereikbaar", "bad")}
+          ${renderMetricCard("Recent gezien", metrics.recent, "Last seen binnen 14 dagen", "neutral")}
+          ${renderMetricCard("Aandacht", metrics.stale, "Last seen ouder dan 30 dagen", "bad")}
+        </div>
+      `;
+    }
+
+    function renderColumnSelector(table) {
+      const key = tableKey(table);
+      const visibleColumns = getVisibleColumns(table);
+      const availableColumns = getAvailableColumns(table);
+
+      return `
+        <details class="columns-panel" data-columns-panel>
+          <summary>Kolommen kiezen</summary>
+          <div class="columns-layout">
+            <div class="bucket">
+              <div class="bucket-title">Zichtbaar</div>
+              <div class="chip-list" data-visible-list="${escapeHtml(key)}">
+                ${visibleColumns.map((column, index) => renderVisibleColumnChip(table, column, index)).join("")}
+              </div>
+              <div class="columns-note">Sleep om de volgorde te wijzigen. Klik op × om te verbergen.</div>
+            </div>
+            <div class="bucket">
+              <div class="bucket-title">Beschikbaar</div>
+              <div class="chip-list" data-available-list="${escapeHtml(key)}">
+                ${availableColumns.map((column) => renderAvailableColumnChip(table, column)).join("")}
+              </div>
+              <div class="columns-note">Klik op een kolom om die toe te voegen.</div>
+            </div>
+          </div>
+          <div class="columns-footer">
+            <button class="button" type="button" data-reset-columns="${escapeHtml(key)}">Standaard selectie</button>
+          </div>
+        </details>
+      `;
+    }
+
+    function renderSearchRow(table) {
+      const key = tableKey(table);
+      const searchKey = currentStateKey(table);
+      const searchQuery = visibleSearchQuery(table);
+      return `
+        <div class="toolbar" data-search-row="${escapeHtml(key)}">
+          <div class="search-row">
+            <label class="search-label" for="search-${escapeHtml(searchKey)}">Zoek in zichtbare kolommen</label>
+            <input
+              id="search-${escapeHtml(searchKey)}"
+              class="search-input"
+              type="text"
+              value="${escapeHtml(searchQuery)}"
+              placeholder="Typ om in deze tabel te zoeken..."
+              data-search="${escapeHtml(key)}"
+            >
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTableBody(table) {
+      const visibleColumns = getVisibleColumns(table);
+      const rows = applySearch(table);
+      const header = visibleColumns.map((column) => `<th>${escapeHtml(column.column_name)}</th>`).join("");
+      const body = rows.length
+        ? rows.map((row) => {
+            const rowClass = isTruthy(row.online) ? "row-online" : "row-offline";
+            const cells = visibleColumns.map((column) => `<td>${formatCell(column.column_name, row[column.column_name])}</td>`).join("");
+            return `<tr class="${rowClass}">${cells}</tr>`;
+          }).join("")
+        : `<tr><td colspan="${Math.max(visibleColumns.length, 1)}" class="empty">Geen rijen gevonden.</td></tr>`;
+
+      return { header, body, visibleColumnsCount: visibleColumns.length, rowsCount: rows.length };
+    }
+
+    function renderCard(table) {
+      const key = tableKey(table);
+      const viewData = getViewData(table);
+      const totalColumns = getAllColumns(table).length;
+      const totalRows = (viewData.rows || []).length;
+      const searchQuery = visibleSearchQuery(table);
+      const { header, body, visibleColumnsCount, rowsCount } = renderTableBody(table);
+      const viewLabel = viewData.label || getActiveViewName(table);
+
+      return `
+        <article class="card" data-card="${escapeHtml(key)}">
+          <div class="card-head">
+            <div>
+              <div class="card-title">${escapeHtml(table.schema)}.${escapeHtml(table.name)}</div>
+              <div class="card-info" data-card-info="${escapeHtml(key)}">${escapeHtml(viewLabel)}: ${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen, ${totalRows} rijen geladen</div>
+            </div>
+            <div class="head-actions">
+              <span class="pill-muted" data-summary="${escapeHtml(key)}">${visibleColumnsCount} zichtbaar van ${totalColumns} kolommen</span>
+              <span class="pill-muted" data-stats="${escapeHtml(key)}">${rowsCount} van ${totalRows} rijen</span>
+              <button class="button" type="button" data-clear-search="${escapeHtml(key)}">Clear search</button>
+            </div>
+          </div>
+          ${renderViewTabs(table)}
+          ${renderViewSummary(table)}
+          ${renderSearchRow(table)}
+          ${renderColumnSelector(table)}
+          <div class="table-wrap">
+            <table>
+              <thead data-head="${escapeHtml(key)}"><tr>${header}</tr></thead>
+              <tbody data-body="${escapeHtml(key)}">${body}</tbody>
+            </table>
+          </div>
+        </article>
+      `;
+    }
+
+    function updateTableView(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const viewData = getViewData(table);
+      const { header, body, visibleColumnsCount, rowsCount } = renderTableBody(table);
+      const head = card.querySelector(`[data-head="${CSS.escape(key)}"]`);
+      const tbody = card.querySelector(`[data-body="${CSS.escape(key)}"]`);
+      if (head) head.innerHTML = `<tr>${header}</tr>`;
+      if (tbody) tbody.innerHTML = body;
+
+      updateStats(
+        key,
+        (viewData.rows || []).length,
+        rowsCount,
+        visibleColumnsCount,
+        getAllColumns(table).length,
+        viewData.label || getActiveViewName(table),
+        currentStateKey(table),
+      );
+    }
+
+    function updateColumnChooser(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const selector = card.querySelector("[data-columns-panel]");
+      const wasOpen = selector ? selector.open : false;
+      if (selector) {
+        selector.outerHTML = renderColumnSelector(table);
+      }
+      const nextSelector = card.querySelector("[data-columns-panel]");
+      if (nextSelector && wasOpen) {
+        nextSelector.open = true;
+      }
+    }
+
+    function updateViewSummary(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const summary = card.querySelector(`[data-summary-grid="${CSS.escape(key)}"]`);
+      if (summary) {
+        summary.outerHTML = renderViewSummary(table);
+      }
+    }
+
+    function updateOverviewSection() {
+      const root = document.getElementById("overview");
+      if (!root) return;
+      root.innerHTML = renderOverviewSection();
+    }
+
+    function updateSearchInput(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const searchRow = card.querySelector(`[data-search-row="${CSS.escape(key)}"]`);
+      if (searchRow) {
+        searchRow.outerHTML = renderSearchRow(table);
+      }
+    }
+
+    function updateViewTabs(table) {
+      const key = tableKey(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      const tabs = card.querySelector(`[data-view-tabs="${CSS.escape(key)}"]`);
+      const rendered = renderViewTabs(table);
+      if (tabs) {
+        tabs.outerHTML = rendered;
+      }
+    }
+
+    function refreshCard(table) {
+      updateViewTabs(table);
+      updateViewSummary(table);
+      updateSearchInput(table);
+      updateColumnChooser(table);
+      updateTableView(table);
+      updateOverviewSection();
+    }
+
+    function isInteractionActive() {
+      const active = document.activeElement;
+      if (active && active.matches("[data-search]")) {
+        return true;
+      }
+      return Boolean(document.querySelector("details[data-columns-panel][open]"));
+    }
+
+    function moveVisibleColumn(table, fromColumn, toColumn) {
+      if (!table) {
+        return;
+      }
+      const key = tableKey(table);
+      const order = loadColumnOrder(table).slice();
+      const fromIndex = order.indexOf(fromColumn);
+      const toIndex = order.indexOf(toColumn);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+        return;
+      }
+
+      const [item] = order.splice(fromIndex, 1);
+      order.splice(toIndex, 0, item);
+      saveColumnOrder(table, order);
+      refreshCard(table);
+    }
+
+    function addColumn(table, columnName) {
+      const order = loadColumnOrder(table).slice();
+      if (!order.includes(columnName)) {
+        order.push(columnName);
+        saveColumnOrder(table, order);
+        refreshCard(table);
+      }
+    }
+
+    function removeColumn(table, columnName) {
+      const order = loadColumnOrder(table).slice();
+      if (order.length <= 1) {
+        return;
+      }
+      const next = order.filter((name) => name !== columnName);
+      saveColumnOrder(table, next);
+      refreshCard(table);
+    }
+
+    function resetColumns(table) {
+      saveColumnOrder(table, defaultVisibleColumns(table));
+      refreshCard(table);
+    }
+
+    function setupInteractions() {
+      document.addEventListener("input", (event) => {
+        const searchInput = event.target.closest("[data-search]");
+        if (!searchInput) return;
+
+        const key = searchInput.dataset.search;
+        const table = appState.tables.find((entry) => tableKey(entry) === key);
+        if (!table) return;
+
+        setSearchQuery(table, searchInput.value);
+        updateTableView(table);
+      });
+
+      document.addEventListener("click", (event) => {
+        const addButton = event.target.closest("[data-add-column]");
+        if (addButton) {
+          const key = addButton.dataset.table;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) addColumn(table, addButton.dataset.addColumn);
+          return;
+        }
+
+        const removeButton = event.target.closest("[data-remove-column]");
+        if (removeButton) {
+          const card = removeButton.closest("[data-card]");
+          const key = card?.dataset.card;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) removeColumn(table, removeButton.dataset.removeColumn);
+          return;
+        }
+
+        const resetButton = event.target.closest("[data-reset-columns]");
+        if (resetButton) {
+          const key = resetButton.dataset.resetColumns;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) resetColumns(table);
+          return;
+        }
+
+        const clearSearchButton = event.target.closest("[data-clear-search]");
+        if (clearSearchButton) {
+          const key = clearSearchButton.dataset.clearSearch;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) {
+            setSearchQuery(table, "");
+            refreshCard(table);
+          }
+        }
+
+        const viewButton = event.target.closest("[data-select-view]");
+        if (viewButton) {
+          const key = viewButton.dataset.table;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) {
+            setActiveView(table, viewButton.dataset.selectView);
+            refreshCard(table);
+          }
+        }
+      });
+
+      document.addEventListener("dragstart", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (!chip) return;
+
+        appState.dragging = {
+          table: chip.dataset.table,
+          column: chip.dataset.visibleColumn,
+        };
+        chip.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", chip.dataset.visibleColumn);
+      });
+
+      document.addEventListener("dragend", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (chip) {
+          chip.classList.remove("dragging");
+        }
+        appState.dragging = null;
+      });
+
+      document.addEventListener("dragover", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (!chip || !appState.dragging) return;
+        if (chip.dataset.table !== appState.dragging.table) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      });
+
+      document.addEventListener("drop", (event) => {
+        const chip = event.target.closest("[data-visible-column]");
+        if (!chip || !appState.dragging) return;
+        if (chip.dataset.table !== appState.dragging.table) return;
+
+        event.preventDefault();
+        moveVisibleColumn(
+          appState.tables.find((entry) => tableKey(entry) === appState.dragging.table),
+          appState.dragging.column,
+          chip.dataset.visibleColumn
+        );
+      });
+    }
+
+    async function loadSnapshot() {
+      if (isInteractionActive()) {
+        return;
+      }
+
+      const response = await fetch("/api/snapshot", { cache: "no-store" });
+      const data = await response.json();
+      appState.tables = data.tables || [];
+
+      const tables = document.getElementById("tables");
+      tables.innerHTML = appState.tables.length
+        ? appState.tables.map((table) => renderCard(table)).join("")
+        : `<div class="card"><div class="empty">Geen tabellen gevonden in deze database.</div></div>`;
+
+      const overviewRoot = document.getElementById("overview");
+      if (overviewRoot) {
+        overviewRoot.innerHTML = renderOverviewSection();
+      }
+
+      appState.tables.forEach((table) => {
+        updateStats(
+          tableKey(table),
+          (getViewData(table).rows || []).length,
+          applySearch(table).length,
+          getVisibleColumns(table).length,
+          getAllColumns(table).length,
+          getViewData(table).label || getActiveViewName(table),
+          currentStateKey(table),
+        );
+      });
+
+      document.getElementById("updated").textContent = new Date(data.generated_at).toLocaleString();
+    }
+
+    setupInteractions();
+    loadSnapshot();
+    setInterval(loadSnapshot, refreshSeconds * 1000);
+  </script>
+</body>
+</html>
