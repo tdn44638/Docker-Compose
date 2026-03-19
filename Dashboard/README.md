@@ -8,6 +8,7 @@ This stack deploys a small live HTML dashboard that reads tables from PostgreSQL
 - `Dockerfile`: container image for the app
 - `app.py`: Flask application and PostgreSQL queries
 - `templates/index.html`: dashboard UI
+- `dashboard_tabs/`: isolated tab logic, including the Windows 10 view
 - `.env.example`: environment values to copy to `.env`
 
 ## Start
@@ -24,6 +25,7 @@ This stack deploys a small live HTML dashboard that reads tables from PostgreSQL
 - Shows all rows per table
 - `public.atera_devices` has two views: `Alle toestellen` and `Windows 10`
 - Each view keeps its own visible columns and column order in the browser
+- Windows-specific filtering and tab defaults live in `dashboard_tabs/windows10.py`
 
 ## Windows 10 View
 

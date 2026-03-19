@@ -6,6 +6,7 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
 from flask import Flask, jsonify, render_template
+from dashboard_tabs import TABLE_COLUMN_OVERRIDES, build_table_views
 
 
 app = Flask(__name__)
@@ -66,20 +67,6 @@ TABLE_COLUMN_OVERRIDES = {
         "foldername",
     ],
 }
-
-TABLE_VIEW_OVERRIDES = {
-    ("public", "atera_devices", "windows10"): [
-        "customername",
-        "systemname",
-        "domainname",
-        "online",
-        "lastseen",
-        "currentloggedusers",
-        "lastloginuser",
-        "reportedfromip",
-    ],
-}
-
 
 def db_config():
     return {
@@ -161,24 +148,6 @@ def pick_default_columns(schema, table_name, columns, limit=10):
     return picked
 
 
-def is_windows10_row(row):
-    for key in ("os", "ostype"):
-        value = str(row.get(key, "")).lower()
-        if "windows 10" in value or "win10" in value or "windows10" in value:
-            return True
-    return False
-
-
-def pick_view_columns(schema, table_name, view_name, columns, limit=12):
-    overrides = TABLE_VIEW_OVERRIDES.get((schema, table_name, view_name))
-    if overrides:
-        by_name = {column["column_name"]: column for column in columns}
-        picked = [name for name in overrides if name in by_name]
-        if picked:
-            return picked[:limit]
-    return pick_default_columns(schema, table_name, columns, limit=limit)
-
-
 def connect():
     return psycopg2.connect(**db_config())
 
@@ -221,22 +190,7 @@ def fetch_tables():
 
                 cur.execute(sql.SQL("SELECT * FROM {}").format(quoted_table))
                 rows = cur.fetchall()
-                views = None
-
-                if (schema, name) == ("public", "atera_devices"):
-                    windows10_rows = [row for row in rows if is_windows10_row(row)]
-                    views = {
-                        "all": {
-                            "label": "Alle toestellen",
-                            "rows": rows,
-                            "suggested_columns": pick_default_columns(schema, name, columns),
-                        },
-                        "windows10": {
-                            "label": "Windows 10",
-                            "rows": windows10_rows,
-                            "suggested_columns": pick_view_columns(schema, name, "windows10", columns),
-                        },
-                    }
+                views = build_table_views(schema, name, columns, rows, pick_default_columns)
 
                 result.append(
                     {
@@ -256,6 +210,19 @@ def fetch_tables():
 def index():
     return render_template(
         "index.html",
+        page="dashboard",
+        refresh_seconds=refresh_seconds(),
+        db_host=db_config()["host"],
+        db_port=db_config()["port"],
+        db_name=db_config()["dbname"],
+    )
+
+
+@app.route("/settings")
+def settings():
+    return render_template(
+        "index.html",
+        page="settings",
         refresh_seconds=refresh_seconds(),
         db_host=db_config()["host"],
         db_port=db_config()["port"],
