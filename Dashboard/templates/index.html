@@ -902,7 +902,7 @@
         offline: !online,
         recent: age !== null && age <= 14,
         stale: age !== null && age >= 30,
-        attention: !online || age === null || age >= 30,
+        attention: age !== null && age >= 30,
       };
     }
 
@@ -955,23 +955,11 @@
 
     function computeOverviewMetrics(table) {
       const metrics = computeViewMetrics(table);
-      let attention = 0;
-      const rows = getViewData(table).rows || [];
-
-      rows.forEach((row) => {
-        const lastSeen = parseDateValue(row.lastseen);
-        const staleRow = lastSeen ? daysSince(lastSeen) >= 30 : true;
-        const offlineRow = !isTruthy(row.online);
-        if (offlineRow || staleRow) {
-          attention += 1;
-        }
-      });
-
       return {
         total: metrics.total,
         online: metrics.online,
         offline: metrics.offline,
-        attention,
+        attention: metrics.stale,
         label: getViewData(table).label || getActiveViewName(table),
       };
     }
@@ -981,6 +969,23 @@
       if (normalized === "totaal") return "";
       if (normalized === "recent gezien") return "recent";
       return normalized.replace(/[^a-z0-9]+/g, "");
+    }
+
+    function quickFilterLabel(filterName) {
+      switch (filterName) {
+        case "online":
+          return "online";
+        case "offline":
+          return "offline";
+        case "recent":
+          return "recent gezien";
+        case "stale":
+          return "langer dan 30 dagen";
+        case "attention":
+          return "aandacht nodig";
+        default:
+          return "geen";
+      }
     }
 
     function renderMetricCard(label, value, note, tone, filterName = null) {
@@ -1024,10 +1029,10 @@
             <div class="overview-value">${escapeHtml(metrics.offline)}</div>
             <div class="overview-note">Nu niet bereikbaar of uitgeschakeld</div>
           </button>
-          <button class="overview-card overview-warning ${activeFilter === "attention" ? "is-active" : ""}" type="button" data-quick-filter="attention">
+          <button class="overview-card overview-warning ${activeFilter === "stale" ? "is-active" : ""}" type="button" data-quick-filter="stale">
             <div class="overview-label">Aandacht nodig</div>
             <div class="overview-value">${escapeHtml(metrics.attention)}</div>
-            <div class="overview-note">Offline of langer dan 30 dagen niet gezien</div>
+            <div class="overview-note">Langer dan 30 dagen niet gezien</div>
           </button>
         </section>
       `;
@@ -1265,7 +1270,7 @@
           <div class="filter-status" data-filter-status="${escapeHtml(key)}">
             <div>
               Actieve filter:
-              <strong>${escapeHtml(activeFilter ? activeFilter : "geen")}</strong>
+              <strong>${escapeHtml(quickFilterLabel(activeFilter))}</strong>
             </div>
             <button class="filter-clear" type="button" data-clear-filter="${escapeHtml(key)}">Wis filter</button>
           </div>
