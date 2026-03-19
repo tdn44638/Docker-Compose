@@ -80,6 +80,12 @@
     }
 
     .overview-card {
+      appearance: none;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
       position: relative;
       overflow: hidden;
       border: 1px solid var(--border);
@@ -88,6 +94,16 @@
       box-shadow: var(--shadow);
       padding: 18px;
       min-height: 150px;
+    }
+
+    .overview-card:hover {
+      border-color: rgba(56, 189, 248, 0.32);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.84));
+    }
+
+    .overview-card.is-active {
+      border-color: rgba(56, 189, 248, 0.52);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12) inset, var(--shadow);
     }
 
     .overview-card::after {
@@ -276,10 +292,26 @@
     }
 
     .summary-card {
+      appearance: none;
+      width: 100%;
       border: 1px solid rgba(148, 163, 184, 0.18);
       border-radius: 14px;
       padding: 12px 14px;
       background: rgba(15, 23, 42, 0.55);
+      color: inherit;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .summary-card:hover {
+      border-color: rgba(56, 189, 248, 0.32);
+      background: rgba(15, 23, 42, 0.68);
+    }
+
+    .summary-card.is-active {
+      border-color: rgba(56, 189, 248, 0.5);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12) inset;
     }
 
     .summary-label {
@@ -515,6 +547,37 @@
       margin-top: 10px;
     }
 
+    .filter-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.22);
+    }
+
+    .filter-status strong {
+      color: #e2e8f0;
+    }
+
+    .filter-clear {
+      border: 1px solid rgba(148, 163, 184, 0.20);
+      background: rgba(56, 189, 248, 0.10);
+      color: #e0f2fe;
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .filter-clear:hover {
+      background: rgba(56, 189, 248, 0.16);
+    }
+
     .table-wrap {
       overflow: auto;
       max-height: 560px;
@@ -690,6 +753,7 @@
       searches: {},
       columnOrders: {},
       activeViews: {},
+      quickFilters: {},
       dragging: null,
     };
 
@@ -828,6 +892,67 @@
       };
     }
 
+    function computeRowFlags(row) {
+      const lastSeen = parseDateValue(row.lastseen);
+      const age = lastSeen ? daysSince(lastSeen) : null;
+      const online = isTruthy(row.online);
+
+      return {
+        online,
+        offline: !online,
+        recent: age !== null && age <= 14,
+        stale: age !== null && age >= 30,
+        attention: !online || age === null || age >= 30,
+      };
+    }
+
+    function getQuickFilterKey(table) {
+      return `${currentStateKey(table)}::quick-filter`;
+    }
+
+    function getQuickFilter(table) {
+      return appState.quickFilters?.[getQuickFilterKey(table)] || "";
+    }
+
+    function setQuickFilter(table, filterName) {
+      const key = getQuickFilterKey(table);
+      appState.quickFilters[key] = filterName;
+      try {
+        localStorage.setItem(`dashboard.quick-filter.v1.${key}`, filterName);
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+
+    function clearQuickFilter(table) {
+      setQuickFilter(table, "");
+    }
+
+    function loadQuickFilter(table) {
+      const key = getQuickFilterKey(table);
+      if (appState.quickFilters?.[key] !== undefined) {
+        return appState.quickFilters[key];
+      }
+
+      try {
+        const saved = localStorage.getItem(`dashboard.quick-filter.v1.${key}`);
+        appState.quickFilters[key] = saved || "";
+      } catch {
+        appState.quickFilters[key] = "";
+      }
+
+      return appState.quickFilters[key];
+    }
+
+    function matchesQuickFilter(row, filterName) {
+      if (!filterName) {
+        return true;
+      }
+
+      const flags = computeRowFlags(row);
+      return Boolean(flags[filterName]);
+    }
+
     function computeOverviewMetrics(table) {
       const metrics = computeViewMetrics(table);
       let attention = 0;
@@ -851,13 +976,24 @@
       };
     }
 
-    function renderMetricCard(label, value, note, tone) {
+    function filterNameFromLabel(label) {
+      const normalized = String(label || "").toLowerCase();
+      if (normalized === "totaal") return "";
+      if (normalized === "recent gezien") return "recent";
+      return normalized.replace(/[^a-z0-9]+/g, "");
+    }
+
+    function renderMetricCard(label, value, note, tone, filterName = null) {
       return `
-        <div class="summary-card">
+        <button
+          class="summary-card"
+          type="button"
+          data-quick-filter="${escapeHtml(filterName === null ? filterNameFromLabel(label) : filterName)}"
+        >
           <div class="summary-label">${escapeHtml(label)}</div>
           <div class="summary-value ${tone ? `summary-${tone}` : ""}">${escapeHtml(value)}</div>
           ${note ? `<div class="summary-note">${escapeHtml(note)}</div>` : ""}
-        </div>
+        </button>
       `;
     }
 
@@ -875,23 +1011,24 @@
       }
 
       const metrics = computeOverviewMetrics(table);
+      const activeFilter = getQuickFilter(table);
       return `
         <section class="dashboard-overview" data-overview-root>
-          <div class="overview-card overview-good">
+          <button class="overview-card overview-good ${activeFilter === "online" ? "is-active" : ""}" type="button" data-quick-filter="online">
             <div class="overview-label">Online</div>
             <div class="overview-value">${escapeHtml(metrics.online)}</div>
             <div class="overview-note">Toestellen actief bereikbaar in ${escapeHtml(metrics.label)}</div>
-          </div>
-          <div class="overview-card overview-bad">
+          </button>
+          <button class="overview-card overview-bad ${activeFilter === "offline" ? "is-active" : ""}" type="button" data-quick-filter="offline">
             <div class="overview-label">Offline</div>
             <div class="overview-value">${escapeHtml(metrics.offline)}</div>
             <div class="overview-note">Nu niet bereikbaar of uitgeschakeld</div>
-          </div>
-          <div class="overview-card overview-warning">
+          </button>
+          <button class="overview-card overview-warning ${activeFilter === "attention" ? "is-active" : ""}" type="button" data-quick-filter="attention">
             <div class="overview-label">Aandacht nodig</div>
             <div class="overview-value">${escapeHtml(metrics.attention)}</div>
             <div class="overview-note">Offline of langer dan 30 dagen niet gezien</div>
-          </div>
+          </button>
         </section>
       `;
     }
@@ -1027,7 +1164,8 @@
       const visibleColumns = getVisibleColumns(table);
       const rows = getViewData(table).rows || [];
       const query = visibleSearchQuery(table);
-      return rows.filter((row) => rowMatchesSearch(row, visibleColumns, query));
+      const quickFilter = getQuickFilter(table);
+      return rows.filter((row) => rowMatchesSearch(row, visibleColumns, query) && matchesQuickFilter(row, quickFilter));
     }
 
     function updateStats(displayKey, totalRows, visibleRows, visibleColumnsCount, totalColumnsCount, viewLabel, searchKey) {
@@ -1114,13 +1252,23 @@
     function renderViewSummary(table) {
       const key = tableKey(table);
       const metrics = computeViewMetrics(table);
+      const activeFilter = getQuickFilter(table);
       return `
-        <div class="summary-grid" data-summary-grid="${escapeHtml(key)}">
-          ${renderMetricCard("Totaal", metrics.total, "Totaal aantal toestellen in deze view", "neutral")}
-          ${renderMetricCard("Online", metrics.online, "Momenteel online", "good")}
-          ${renderMetricCard("Offline", metrics.offline, "Momenteel niet bereikbaar", "bad")}
-          ${renderMetricCard("Recent gezien", metrics.recent, "Last seen binnen 14 dagen", "neutral")}
-          ${renderMetricCard("Aandacht", metrics.stale, "Last seen ouder dan 30 dagen", "bad")}
+        <div data-summary-wrapper="${escapeHtml(key)}">
+          <div class="summary-grid" data-summary-grid="${escapeHtml(key)}">
+            ${renderMetricCard("Totaal", metrics.total, "Totaal aantal toestellen in deze view", "neutral", "")}
+            ${renderMetricCard("Online", metrics.online, "Momenteel online", "good", "online")}
+            ${renderMetricCard("Offline", metrics.offline, "Momenteel niet bereikbaar", "bad", "offline")}
+            ${renderMetricCard("Recent gezien", metrics.recent, "Last seen binnen 14 dagen", "neutral", "recent")}
+            ${renderMetricCard("Aandacht", metrics.stale, "Last seen ouder dan 30 dagen", "bad", "stale")}
+          </div>
+          <div class="filter-status" data-filter-status="${escapeHtml(key)}">
+            <div>
+              Actieve filter:
+              <strong>${escapeHtml(activeFilter ? activeFilter : "geen")}</strong>
+            </div>
+            <button class="filter-clear" type="button" data-clear-filter="${escapeHtml(key)}">Wis filter</button>
+          </div>
         </div>
       `;
     }
@@ -1160,6 +1308,7 @@
       const key = tableKey(table);
       const searchKey = currentStateKey(table);
       const searchQuery = visibleSearchQuery(table);
+      const quickFilter = getQuickFilter(table);
       return `
         <div class="toolbar" data-search-row="${escapeHtml(key)}">
           <div class="search-row">
@@ -1173,6 +1322,7 @@
               data-search="${escapeHtml(key)}"
             >
           </div>
+          ${quickFilter ? `<div class="columns-note">Filter actief: <strong>${escapeHtml(quickFilter)}</strong></div>` : ""}
         </div>
       `;
     }
@@ -1272,9 +1422,9 @@
       const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
       if (!card) return;
 
-      const summary = card.querySelector(`[data-summary-grid="${CSS.escape(key)}"]`);
-      if (summary) {
-        summary.outerHTML = renderViewSummary(table);
+      const wrapper = card.querySelector(`[data-summary-wrapper="${CSS.escape(key)}"]`);
+      if (wrapper) {
+        wrapper.outerHTML = renderViewSummary(table);
       }
     }
 
@@ -1314,6 +1464,20 @@
       updateColumnChooser(table);
       updateTableView(table);
       updateOverviewSection();
+      updateQuickFilterButtons(table);
+    }
+
+    function updateQuickFilterButtons(table) {
+      const key = tableKey(table);
+      const activeFilter = getQuickFilter(table);
+      const card = document.querySelector(`[data-card="${CSS.escape(key)}"]`);
+      if (!card) return;
+
+      card.querySelectorAll("[data-quick-filter]").forEach((button) => {
+        const filterName = button.dataset.quickFilter;
+        button.classList.toggle("is-active", filterName === activeFilter);
+        button.setAttribute("aria-pressed", String(filterName === activeFilter));
+      });
     }
 
     function isInteractionActive() {
@@ -1424,6 +1588,30 @@
             refreshCard(table);
           }
         }
+
+        const quickFilterButton = event.target.closest("[data-quick-filter]");
+        if (quickFilterButton) {
+          const card = quickFilterButton.closest("[data-card]");
+          const key = card?.dataset.card;
+          const table = appState.tables.find((entry) => tableKey(entry) === key) || getOverviewTable();
+          if (table) {
+            const filterName = quickFilterButton.dataset.quickFilter;
+            const current = getQuickFilter(table);
+            setQuickFilter(table, current === filterName ? "" : filterName);
+            refreshCard(table);
+          }
+          return;
+        }
+
+        const clearFilterButton = event.target.closest("[data-clear-filter]");
+        if (clearFilterButton) {
+          const key = clearFilterButton.dataset.clearFilter;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) {
+            clearQuickFilter(table);
+            refreshCard(table);
+          }
+        }
       });
 
       document.addEventListener("dragstart", (event) => {
@@ -1477,6 +1665,7 @@
       const response = await fetch("/api/snapshot", { cache: "no-store" });
       const data = await response.json();
       appState.tables = data.tables || [];
+      appState.quickFilters = appState.quickFilters || {};
 
       const tables = document.getElementById("tables");
       tables.innerHTML = appState.tables.length
@@ -1489,6 +1678,7 @@
       }
 
       appState.tables.forEach((table) => {
+        loadQuickFilter(table);
         updateStats(
           tableKey(table),
           (getViewData(table).rows || []).length,
@@ -1501,6 +1691,18 @@
       });
 
       document.getElementById("updated").textContent = new Date(data.generated_at).toLocaleString();
+      updateOverviewButtons();
+    }
+
+    function updateOverviewButtons() {
+      const table = getOverviewTable();
+      if (!table) return;
+      const activeFilter = getQuickFilter(table);
+      document.querySelectorAll(".dashboard-overview [data-quick-filter]").forEach((button) => {
+        const isActive = button.dataset.quickFilter === activeFilter;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
     }
 
     setupInteractions();
