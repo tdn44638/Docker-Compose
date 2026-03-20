@@ -169,6 +169,53 @@
       margin: 0 0 24px;
     }
 
+    .overview-filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: -10px 0 24px;
+    }
+
+    .overview-filter {
+      appearance: none;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 14px;
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      cursor: pointer;
+      font: inherit;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .overview-filter:hover {
+      transform: translateY(-1px);
+      border-color: rgba(56, 189, 248, 0.32);
+      background: rgba(15, 23, 42, 0.92);
+    }
+
+    .overview-filter.is-active {
+      border-color: rgba(56, 189, 248, 0.52);
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    .overview-filter-label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    .overview-filter-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
     .overview-card {
       appearance: none;
       width: 100%;
@@ -1084,8 +1131,11 @@
       let online = 0;
       let recent = 0;
       let stale = 0;
+      let windows10 = 0;
+      let server2016OrOlder = 0;
 
       rows.forEach((row) => {
+        const flags = computeRowFlags(row);
         if (isTruthy(row.online)) {
           online += 1;
         }
@@ -1100,6 +1150,14 @@
             stale += 1;
           }
         }
+
+        if (flags.windows10) {
+          windows10 += 1;
+        }
+
+        if (flags.server2016_or_older) {
+          server2016OrOlder += 1;
+        }
       });
 
       return {
@@ -1108,6 +1166,8 @@
         offline: Math.max(rows.length - online, 0),
         recent,
         stale,
+        windows10,
+        server2016OrOlder,
       };
     }
 
@@ -1115,6 +1175,11 @@
       const lastSeen = parseDateValue(row.lastseen);
       const age = lastSeen ? daysSince(lastSeen) : null;
       const online = isTruthy(row.online);
+      const osText = normalize(row.os || row.ostype);
+      const isWindows10 = osText.includes("windows 10") || osText.includes("win10") || osText.includes("windows10");
+      const isWindowsServer = osText.includes("windows server") || osText.includes("server");
+      const serverYearMatch = osText.match(/\b(20\d{2}|19\d{2})\b/);
+      const serverYear = serverYearMatch ? Number(serverYearMatch[1]) : null;
 
       return {
         online,
@@ -1122,6 +1187,8 @@
         recent: age !== null && age <= 14,
         stale: age !== null && age >= 30,
         attention: age !== null && age >= 30,
+        windows10: isWindows10,
+        server2016_or_older: isWindowsServer && (serverYear === null || serverYear <= 2016),
       };
     }
 
@@ -1179,6 +1246,8 @@
         online: metrics.online,
         offline: metrics.offline,
         attention: metrics.stale,
+        windows10: metrics.windows10,
+        server2016OrOlder: metrics.server2016OrOlder,
         label: getViewData(table).label || getActiveViewName(table),
       };
     }
@@ -1202,6 +1271,10 @@
           return "langer dan 30 dagen";
         case "attention":
           return "aandacht nodig";
+        case "windows10":
+          return "Windows 10";
+        case "server2016_or_older":
+          return "Server 2016 en ouder";
         default:
           return "geen";
       }
@@ -1234,23 +1307,35 @@
       const metrics = computeOverviewMetrics(table);
       const activeFilter = getQuickFilter(table);
       return `
-        <section class="dashboard-overview" data-overview-root>
-          <button class="overview-card overview-good ${activeFilter === "online" ? "is-active" : ""}" type="button" data-quick-filter="online">
-            <div class="overview-label">Online</div>
-            <div class="overview-value">${escapeHtml(metrics.online)}</div>
-            <div class="overview-note">Toestellen actief bereikbaar in ${escapeHtml(metrics.label)}</div>
-          </button>
-          <button class="overview-card overview-bad ${activeFilter === "offline" ? "is-active" : ""}" type="button" data-quick-filter="offline">
-            <div class="overview-label">Offline</div>
-            <div class="overview-value">${escapeHtml(metrics.offline)}</div>
-            <div class="overview-note">Nu niet bereikbaar of uitgeschakeld</div>
-          </button>
-          <button class="overview-card overview-warning ${activeFilter === "stale" ? "is-active" : ""}" type="button" data-quick-filter="stale">
-            <div class="overview-label">Aandacht nodig</div>
-            <div class="overview-value">${escapeHtml(metrics.attention)}</div>
-            <div class="overview-note">Langer dan 30 dagen niet gezien</div>
-          </button>
-        </section>
+        <div data-overview-root>
+          <section class="dashboard-overview">
+            <button class="overview-card overview-good ${activeFilter === "online" ? "is-active" : ""}" type="button" data-quick-filter="online">
+              <div class="overview-label">Online</div>
+              <div class="overview-value">${escapeHtml(metrics.online)}</div>
+              <div class="overview-note">Toestellen actief bereikbaar in ${escapeHtml(metrics.label)}</div>
+            </button>
+            <button class="overview-card overview-bad ${activeFilter === "offline" ? "is-active" : ""}" type="button" data-quick-filter="offline">
+              <div class="overview-label">Offline</div>
+              <div class="overview-value">${escapeHtml(metrics.offline)}</div>
+              <div class="overview-note">Nu niet bereikbaar of uitgeschakeld</div>
+            </button>
+            <button class="overview-card overview-warning ${activeFilter === "stale" ? "is-active" : ""}" type="button" data-quick-filter="stale">
+              <div class="overview-label">Aandacht nodig</div>
+              <div class="overview-value">${escapeHtml(metrics.attention)}</div>
+              <div class="overview-note">Langer dan 30 dagen niet gezien</div>
+            </button>
+          </section>
+          <section class="overview-filters" aria-label="Snelfilters">
+            <button class="overview-filter ${activeFilter === "windows10" ? "is-active" : ""}" type="button" data-quick-filter="windows10">
+              <span class="overview-filter-label">Filter</span>
+              <span class="overview-filter-value">Windows 10 (${escapeHtml(metrics.windows10)})</span>
+            </button>
+            <button class="overview-filter ${activeFilter === "server2016_or_older" ? "is-active" : ""}" type="button" data-quick-filter="server2016_or_older">
+              <span class="overview-filter-label">Filter</span>
+              <span class="overview-filter-value">Server 2016 en ouder (${escapeHtml(metrics.server2016OrOlder)})</span>
+            </button>
+          </section>
+        </div>
       `;
     }
 
@@ -2046,7 +2131,7 @@
       const table = getOverviewTable();
       if (!table) return;
       const activeFilter = getQuickFilter(table);
-      document.querySelectorAll(".dashboard-overview [data-quick-filter]").forEach((button) => {
+      document.querySelectorAll("[data-overview-root] [data-quick-filter]").forEach((button) => {
         const isActive = button.dataset.quickFilter === activeFilter;
         button.classList.toggle("is-active", isActive);
         button.setAttribute("aria-pressed", String(isActive));

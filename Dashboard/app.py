@@ -130,6 +130,17 @@ def connect():
     return psycopg2.connect(**db_config())
 
 
+def fetch_table_rows(cur, schema, name):
+    # Intentionally fetch every row for the table.
+    # No LIMIT or pagination here, because filters must see the full dataset.
+    quoted_table = sql.SQL("{}.{}").format(
+        sql.Identifier(schema),
+        sql.Identifier(name),
+    )
+    cur.execute(sql.SQL("SELECT * FROM {}").format(quoted_table))
+    return cur.fetchall()
+
+
 def fetch_tables():
     with connect() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -161,13 +172,7 @@ def fetch_tables():
                 columns = cur.fetchall()
                 suggested_columns = pick_default_columns(schema, name, columns)
 
-                quoted_table = sql.SQL("{}.{}").format(
-                    sql.Identifier(schema),
-                    sql.Identifier(name),
-                )
-
-                cur.execute(sql.SQL("SELECT * FROM {}").format(quoted_table))
-                rows = cur.fetchall()
+                rows = fetch_table_rows(cur, schema, name)
                 views = build_table_views(schema, name, columns, rows, pick_default_columns)
 
                 result.append(

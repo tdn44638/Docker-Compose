@@ -28,6 +28,8 @@ This stack deploys a small live HTML dashboard that reads tables from PostgreSQL
 - that primary table has two views: `Alle toestellen` and `Windows 10`
 - Each view keeps its own visible columns and column order in the browser
 - Windows-specific filtering and tab defaults live in `dashboard_tabs/windows10.py`
+- Make sure `DASHBOARD_PRIMARY_TABLE` is passed into the container, for example through `docker-compose.yml` or your deployment environment
+- The app does not apply any row limit when loading table data; it fetches every row with `SELECT *` and `fetchall()`
 
 ## Windows 10 View
 
