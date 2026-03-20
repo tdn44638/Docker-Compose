@@ -7,6 +7,7 @@ from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
 from flask import Flask, jsonify, render_template
 from dashboard_tabs import TABLE_COLUMN_OVERRIDES, build_table_views
+from dashboard_tabs.config import PRIMARY_TABLE_KEY, PRIMARY_TABLE_NAME, PRIMARY_TABLE_SCHEMA
 
 
 app = Flask(__name__)
@@ -44,29 +45,6 @@ FILTER_NAME_PENALTY = (
     "binary",
     "blob",
 )
-
-TABLE_COLUMN_OVERRIDES = {
-    ("public", "atera_devices"): [
-        "customername",
-        "systemname",
-        "domainname",
-        "online",
-        "lastseen",
-        "monitored",
-        "currentloggedusers",
-        "reportedfromip",
-        "agentversion",
-        "os",
-        "ostype",
-        "osversion",
-        "osbuild",
-        "ipaddresses",
-        "macaddresses",
-        "created",
-        "modified",
-        "foldername",
-    ],
-}
 
 def db_config():
     return {
@@ -215,6 +193,9 @@ def index():
         db_host=db_config()["host"],
         db_port=db_config()["port"],
         db_name=db_config()["dbname"],
+        primary_table_schema=PRIMARY_TABLE_SCHEMA,
+        primary_table_name=PRIMARY_TABLE_NAME,
+        primary_table_key=PRIMARY_TABLE_KEY,
     )
 
 
@@ -227,6 +208,9 @@ def settings():
         db_host=db_config()["host"],
         db_port=db_config()["port"],
         db_name=db_config()["dbname"],
+        primary_table_schema=PRIMARY_TABLE_SCHEMA,
+        primary_table_name=PRIMARY_TABLE_NAME,
+        primary_table_key=PRIMARY_TABLE_KEY,
     )
 
 

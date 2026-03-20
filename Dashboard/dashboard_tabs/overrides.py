@@ -1,5 +1,8 @@
+from .config import PRIMARY_TABLE_NAME, PRIMARY_TABLE_SCHEMA
+
+
 TABLE_COLUMN_OVERRIDES = {
-    ("public", "atera_devices"): [
+    (PRIMARY_TABLE_SCHEMA, PRIMARY_TABLE_NAME): [
         "customername",
         "systemname",
         "domainname",
@@ -20,4 +23,3 @@ TABLE_COLUMN_OVERRIDES = {
         "foldername",
     ],
 }
-

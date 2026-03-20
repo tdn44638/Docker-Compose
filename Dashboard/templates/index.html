@@ -744,6 +744,9 @@
 
   <script>
     const refreshSeconds = {{ refresh_seconds }};
+    const PRIMARY_TABLE_SCHEMA = {{ primary_table_schema|tojson }};
+    const PRIMARY_TABLE_NAME = {{ primary_table_name|tojson }};
+    const PRIMARY_TABLE_KEY = {{ primary_table_key|tojson }};
     const STORAGE_PREFIX = "dashboard.visible-columns.v3";
     const VIEW_PREFIX = "dashboard.active-view.v1";
     const DEFAULT_VISIBLE_LIMIT = 10;
@@ -1003,7 +1006,8 @@
     }
 
     function getOverviewTable() {
-      return appState.tables.find((table) => table.schema === "public" && table.name === "atera_devices")
+      return appState.tables.find((table) => table.schema === PRIMARY_TABLE_SCHEMA && table.name === PRIMARY_TABLE_NAME)
+        || appState.tables.find((table) => tableKey(table) === PRIMARY_TABLE_KEY)
         || appState.tables.find((table) => table.views)
         || appState.tables[0]
         || null;
