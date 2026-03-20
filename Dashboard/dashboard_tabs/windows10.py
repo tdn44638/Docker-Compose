@@ -19,7 +19,7 @@ def is_windows10_row(row):
 
 
 def build_windows10_views(schema, table_name, columns, rows, pick_default_columns):
-    if (schema, table_name) != ("public", "atera_devices"):
+    if (schema, table_name) != ("public", "CRAPP_devices"):
         return None
 
     windows10_rows = [row for row in rows if is_windows10_row(row)]
