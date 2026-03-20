@@ -6,7 +6,7 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
 from flask import Flask, jsonify, render_template
-from dashboard_tabs import TABLE_COLUMN_OVERRIDES, build_table_views
+from dashboard_tabs import TABLE_COLUMN_OVERRIDES
 
 
 app = Flask(__name__)
