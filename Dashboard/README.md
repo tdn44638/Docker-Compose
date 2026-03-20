@@ -19,10 +19,11 @@ This stack deploys a small live HTML dashboard that reads tables from PostgreSQL
 
 ## Behavior
 
-- Lists all non-system tables in the configured database
-- Renders each table as HTML
+- Loads all non-system tables from the configured database
+- Renders the primary table from `DASHBOARD_PRIMARY_TABLE` as the main dashboard view
+- Keeps other tables available as optional secondary tabs that can be enabled in settings
 - Refreshes automatically every `DASHBOARD_REFRESH_SECONDS`
-- Shows all rows per table
+- Shows all rows for the visible tables
 - `DASHBOARD_PRIMARY_TABLE` points to the main table for the dashboard tabs, defaulting to `public.atera_devices`
 - that primary table has two views: `Alle toestellen` and `Windows 10`
 - Each view keeps its own visible columns and column order in the browser

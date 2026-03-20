@@ -40,6 +40,96 @@
       display: none;
     }
 
+    .secondary-section {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+      grid-column: 1 / -1;
+    }
+
+    .secondary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 0 4px;
+    }
+
+    .secondary-title {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #dbeafe;
+      font-weight: 700;
+    }
+
+    .secondary-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .secondary-empty {
+      padding: 18px;
+      color: var(--muted);
+      border: 1px dashed rgba(148, 163, 184, 0.22);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .settings-manager {
+      display: grid;
+      gap: 16px;
+    }
+
+    .settings-table-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .settings-table-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(15, 23, 42, 0.55);
+    }
+
+    .settings-table-item strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .settings-table-item small {
+      color: var(--muted);
+    }
+
+    .settings-toggle {
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(56, 189, 248, 0.10);
+      color: #e0f2fe;
+      cursor: pointer;
+      font: inherit;
+      white-space: nowrap;
+    }
+
+    .settings-toggle.is-active {
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.28);
+      color: #bbf7d0;
+    }
+
+    .settings-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
     .wrap {
       max-width: 1600px;
       margin: 0 auto;
@@ -734,6 +824,7 @@
           </p>
         </article>
       </div>
+      <div class="settings-manager" id="settings-manager"></div>
     </section>
 
     <div class="footer">
@@ -749,6 +840,8 @@
     const PRIMARY_TABLE_KEY = {{ primary_table_key|tojson }};
     const STORAGE_PREFIX = "dashboard.visible-columns.v3";
     const VIEW_PREFIX = "dashboard.active-view.v1";
+    const SECONDARY_TABLE_VISIBILITY_PREFIX = "dashboard.secondary-table-visibility.v1";
+    const ACTIVE_SECONDARY_TABLE_KEY = "dashboard.active-secondary-table.v1";
     const DEFAULT_VISIBLE_LIMIT = 10;
 
     const appState = {
@@ -757,6 +850,8 @@
       columnOrders: {},
       activeViews: {},
       quickFilters: {},
+      secondaryTableVisibility: null,
+      activeSecondaryTableKey: "",
       dragging: null,
     };
 
@@ -772,6 +867,123 @@
 
     function tableKey(table) {
       return `${table.schema}.${table.name}`;
+    }
+
+    function getPrimaryTableKey() {
+      return PRIMARY_TABLE_KEY;
+    }
+
+    function isPrimaryTable(table) {
+      return tableKey(table) === getPrimaryTableKey();
+    }
+
+    function getPrimaryTable() {
+      return appState.tables.find((table) => tableKey(table) === getPrimaryTableKey()) || null;
+    }
+
+    function getSecondaryTables() {
+      return appState.tables.filter((table) => !isPrimaryTable(table));
+    }
+
+    function loadSecondaryVisibility() {
+      if (appState.secondaryTableVisibility) {
+        return appState.secondaryTableVisibility;
+      }
+
+      try {
+        const saved = localStorage.getItem(SECONDARY_TABLE_VISIBILITY_PREFIX);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          appState.secondaryTableVisibility = new Set(Array.isArray(parsed) ? parsed : []);
+          return appState.secondaryTableVisibility;
+        }
+      } catch {
+        // Ignore storage failures.
+      }
+
+      appState.secondaryTableVisibility = new Set();
+      return appState.secondaryTableVisibility;
+    }
+
+    function saveSecondaryVisibility(set) {
+      appState.secondaryTableVisibility = set;
+      try {
+        localStorage.setItem(SECONDARY_TABLE_VISIBILITY_PREFIX, JSON.stringify([...set]));
+      } catch {
+        // Ignore storage failures and keep the in-memory state.
+      }
+    }
+
+    function isSecondaryTableVisible(table) {
+      return loadSecondaryVisibility().has(tableKey(table));
+    }
+
+    function setSecondaryTableVisible(table, visible) {
+      const key = tableKey(table);
+      const set = new Set(loadSecondaryVisibility());
+      if (visible) {
+        set.add(key);
+        saveActiveSecondaryTableKey(key);
+      } else {
+        set.delete(key);
+      }
+      saveSecondaryVisibility(set);
+      if (!getVisibleSecondaryTables().length) {
+        saveActiveSecondaryTableKey("");
+      } else if (!getActiveSecondaryTable()) {
+        saveActiveSecondaryTableKey(getVisibleSecondaryTables()[0].key);
+      }
+      renderAllVisibleSections();
+    }
+
+    function getVisibleSecondaryTables() {
+      const visible = loadSecondaryVisibility();
+      return getSecondaryTables().map((table) => ({ table, key: tableKey(table) })).filter((entry) => visible.has(entry.key));
+    }
+
+    function getActiveSecondaryTableKey() {
+      const visible = getVisibleSecondaryTables();
+      if (!visible.length) {
+        return "";
+      }
+
+      const current = appState.activeSecondaryTableKey;
+      if (current && visible.some((entry) => entry.key === current)) {
+        return current;
+      }
+
+      try {
+        const saved = localStorage.getItem(ACTIVE_SECONDARY_TABLE_KEY);
+        if (saved && visible.some((entry) => entry.key === saved)) {
+          appState.activeSecondaryTableKey = saved;
+          return saved;
+        }
+      } catch {
+        // Ignore storage failures.
+      }
+
+      const next = visible[0].key;
+      appState.activeSecondaryTableKey = next;
+      try {
+        localStorage.setItem(ACTIVE_SECONDARY_TABLE_KEY, next);
+      } catch {
+        // Ignore storage failures and keep the in-memory selection.
+      }
+      return next;
+    }
+
+    function getActiveSecondaryTable() {
+      const key = getActiveSecondaryTableKey();
+      return appState.tables.find((table) => tableKey(table) === key) || null;
+    }
+
+    function saveActiveSecondaryTableKey(key) {
+      appState.activeSecondaryTableKey = key;
+      try {
+        localStorage.setItem(ACTIVE_SECONDARY_TABLE_KEY, key);
+      } catch {
+        // Ignore storage failures and keep the in-memory selection.
+      }
     }
 
     function getActiveViewName(table) {
@@ -1006,11 +1218,7 @@
     }
 
     function getOverviewTable() {
-      return appState.tables.find((table) => table.schema === PRIMARY_TABLE_SCHEMA && table.name === PRIMARY_TABLE_NAME)
-        || appState.tables.find((table) => tableKey(table) === PRIMARY_TABLE_KEY)
-        || appState.tables.find((table) => table.views)
-        || appState.tables[0]
-        || null;
+      return getPrimaryTable() || null;
     }
 
     function renderOverviewSection() {
@@ -1040,6 +1248,122 @@
           </button>
         </section>
       `;
+    }
+
+    function renderSecondaryTabButton(entry, isActive) {
+      const label = `${entry.table.schema}.${entry.table.name}`;
+      return `
+        <button
+          class="view-tab ${isActive ? "active" : ""}"
+          type="button"
+          data-select-secondary-table="${escapeHtml(entry.key)}"
+        >
+          <span>${escapeHtml(label)}</span>
+          <small>${(entry.table.rows || []).length}</small>
+        </button>
+      `;
+    }
+
+    function renderSecondarySection() {
+      const visible = getVisibleSecondaryTables();
+      if (!visible.length) {
+        return `
+          <section class="secondary-section">
+            <div class="secondary-header">
+              <h2 class="secondary-title">Andere tabellen</h2>
+              <div class="card-info">Geen secundaire tabellen zichtbaar</div>
+            </div>
+            <div class="secondary-empty">
+              Zet tabellen aan via de settings-pagina om ze hier als aparte tab te zien.
+            </div>
+          </section>
+        `;
+      }
+
+      const activeKey = getActiveSecondaryTableKey();
+      const active = visible.find((entry) => entry.key === activeKey) || visible[0];
+      if (active.key !== activeKey) {
+        saveActiveSecondaryTableKey(active.key);
+      }
+
+      return `
+        <section class="secondary-section">
+          <div class="secondary-header">
+            <h2 class="secondary-title">Andere tabellen</h2>
+            <div class="secondary-tabs">
+              ${visible.map((entry) => renderSecondaryTabButton(entry, entry.key === active.key)).join("")}
+            </div>
+          </div>
+          ${renderCard(active.table)}
+        </section>
+      `;
+    }
+
+    function renderDashboardTables() {
+      const primary = getPrimaryTable();
+      const sections = [];
+
+      if (primary) {
+        sections.push(renderCard(primary));
+      } else {
+        sections.push(`<div class="card"><div class="empty">Primaire tabel <code>${escapeHtml(PRIMARY_TABLE_KEY)}</code> is niet gevonden in deze database.</div></div>`);
+      }
+
+      sections.push(renderSecondarySection());
+      return sections.join("");
+    }
+
+    function renderSettingsManager() {
+      const secondary = getSecondaryTables().map((table) => ({ table, key: tableKey(table) }));
+      const primaryLabel = `${PRIMARY_TABLE_SCHEMA}.${PRIMARY_TABLE_NAME}`;
+      const rows = secondary.length
+        ? secondary.map((entry) => {
+            const visible = isSecondaryTableVisible(entry.table);
+            return `
+              <div class="settings-table-item">
+                <div>
+                  <strong>${escapeHtml(entry.key)}</strong>
+                  <small>${escapeHtml((entry.table.rows || []).length)} rijen beschikbaar</small>
+                </div>
+                <button class="settings-toggle ${visible ? "is-active" : ""}" type="button" data-toggle-secondary-table="${escapeHtml(entry.key)}">
+                  ${visible ? "Zichtbaar" : "Verborgen"}
+                </button>
+              </div>
+            `;
+          }).join("")
+        : `<div class="secondary-empty">Er zijn geen secundaire tabellen gevonden.</div>`;
+
+      return `
+        <article class="settings-card">
+          <h2>Tabbladen</h2>
+          <p>
+            De primaire tabel <code>${escapeHtml(primaryLabel)}</code> staat altijd aan.
+            Schakel hieronder extra tabellen in of uit voor de aparte tabweergave.
+          </p>
+          <div class="settings-table-list">
+            ${rows}
+          </div>
+        </article>
+      `;
+    }
+
+    function updateDashboardTablesRoot() {
+      const root = document.getElementById("tables");
+      if (!root) return;
+      root.innerHTML = renderDashboardTables();
+    }
+
+    function updateSettingsManager() {
+      const root = document.getElementById("settings-manager");
+      if (!root) return;
+      root.innerHTML = renderSettingsManager();
+    }
+
+    function renderAllVisibleSections() {
+      updateDashboardTablesRoot();
+      updateSettingsManager();
+      updateOverviewSection();
+      updateOverviewButtons();
     }
 
     function formatCell(columnName, value) {
@@ -1598,6 +1922,23 @@
           }
         }
 
+        const secondaryTabButton = event.target.closest("[data-select-secondary-table]");
+        if (secondaryTabButton) {
+          saveActiveSecondaryTableKey(secondaryTabButton.dataset.selectSecondaryTable);
+          renderAllVisibleSections();
+          return;
+        }
+
+        const toggleSecondaryButton = event.target.closest("[data-toggle-secondary-table]");
+        if (toggleSecondaryButton) {
+          const key = toggleSecondaryButton.dataset.toggleSecondaryTable;
+          const table = appState.tables.find((entry) => tableKey(entry) === key);
+          if (table) {
+            setSecondaryTableVisible(table, !isSecondaryTableVisible(table));
+            return;
+          }
+        }
+
         const quickFilterButton = event.target.closest("[data-quick-filter]");
         if (quickFilterButton) {
           const card = quickFilterButton.closest("[data-card]");
@@ -1676,18 +2017,13 @@
       appState.tables = data.tables || [];
       appState.quickFilters = appState.quickFilters || {};
 
-      const tables = document.getElementById("tables");
-      tables.innerHTML = appState.tables.length
-        ? appState.tables.map((table) => renderCard(table)).join("")
-        : `<div class="card"><div class="empty">Geen tabellen gevonden in deze database.</div></div>`;
-
-      const overviewRoot = document.getElementById("overview");
-      if (overviewRoot) {
-        overviewRoot.innerHTML = renderOverviewSection();
-      }
-
       appState.tables.forEach((table) => {
         loadQuickFilter(table);
+      });
+
+      renderAllVisibleSections();
+
+      appState.tables.forEach((table) => {
         updateStats(
           tableKey(table),
           (getViewData(table).rows || []).length,
@@ -1700,7 +2036,6 @@
       });
 
       document.getElementById("updated").textContent = new Date(data.generated_at).toLocaleString();
-      updateOverviewButtons();
     }
 
     function updateOverviewButtons() {
