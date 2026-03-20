@@ -46,7 +46,7 @@ FILTER_NAME_PENALTY = (
 )
 
 TABLE_COLUMN_OVERRIDES = {
-    ("public", "atera_devices"): [
+    ("public", "CRAPP_devices"): [
         "customername",
         "systemname",
         "domainname",
